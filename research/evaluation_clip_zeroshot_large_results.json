@@ -1,0 +1,344 @@
+{
+  "total_clips": 12,
+  "clips_correct": 12,
+  "clips_top3_correct": 12,
+  "model": "clip-vit-large-patch14",
+  "method": "zero-shot",
+  "per_species": {
+    "bear": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "coyote": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "deer": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "elk": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "fox": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "goat": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "horse": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "moose": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "opossum": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "raccoon": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "skunk": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "wild_boar": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    }
+  },
+  "clip_details": [
+    {
+      "species": "bear",
+      "clip": "bear_aAfXsxLSblM.mp4",
+      "ground_truth": "bear",
+      "predicted": "bear",
+      "correct": true,
+      "frames_processed": 94,
+      "avg_scores": {
+        "bear": 0.9567,
+        "fox": 0.2664,
+        "goat": 0.2287,
+        "skunk": 0.1856,
+        "raccoon": 0.1504
+      },
+      "vote_counts": {
+        "bear": 93,
+        "fox": 4,
+        "raccoon": 2,
+        "skunk": 2,
+        "wild_boar": 1,
+        "goat": 3
+      },
+      "top3": [
+        "bear",
+        "fox",
+        "goat"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "coyote",
+      "clip": "coyote_SWbbQpKE060.mp4",
+      "ground_truth": "coyote",
+      "predicted": "coyote",
+      "correct": true,
+      "frames_processed": 95,
+      "avg_scores": {
+        "coyote": 0.9472,
+        "bear": 0.3593,
+        "fox": 0.2263,
+        "deer": 0.2044,
+        "wild_boar": 0.1138
+      },
+      "vote_counts": {
+        "coyote": 94,
+        "wild_boar": 1,
+        "fox": 12,
+        "bear": 1,
+        "deer": 1,
+        "elk": 1
+      },
+      "top3": [
+        "coyote",
+        "fox",
+        "bear"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "deer",
+      "clip": "deer_walking_through_grass.mp4",
+      "ground_truth": "deer",
+      "predicted": "deer",
+      "correct": true,
+      "frames_processed": 7,
+      "avg_scores": {
+        "deer": 0.9626
+      },
+      "vote_counts": {
+        "deer": 7
+      },
+      "top3": [
+        "deer"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "elk",
+      "clip": "elk_walking_field_1.mp4",
+      "ground_truth": "elk",
+      "predicted": "elk",
+      "correct": true,
+      "frames_processed": 35,
+      "avg_scores": {
+        "elk": 0.9916
+      },
+      "vote_counts": {
+        "elk": 35
+      },
+      "top3": [
+        "elk"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "fox",
+      "clip": "fox_sleepy_on_grass.mp4",
+      "ground_truth": "fox",
+      "predicted": "fox",
+      "correct": true,
+      "frames_processed": 29,
+      "avg_scores": {
+        "fox": 0.9985
+      },
+      "vote_counts": {
+        "fox": 29
+      },
+      "top3": [
+        "fox"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "goat",
+      "clip": "goat_RJpnxOilqnU.mp4",
+      "ground_truth": "goat",
+      "predicted": "goat",
+      "correct": true,
+      "frames_processed": 90,
+      "avg_scores": {
+        "goat": 0.9057,
+        "bear": 0.542
+      },
+      "vote_counts": {
+        "goat": 86,
+        "bear": 20
+      },
+      "top3": [
+        "goat",
+        "bear"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "horse",
+      "clip": "horse_walking_field.mp4",
+      "ground_truth": "horse",
+      "predicted": "horse",
+      "correct": true,
+      "frames_processed": 14,
+      "avg_scores": {
+        "horse": 0.9993
+      },
+      "vote_counts": {
+        "horse": 14
+      },
+      "top3": [
+        "horse"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "moose",
+      "clip": "moose_walking_field_1.mp4",
+      "ground_truth": "moose",
+      "predicted": "moose",
+      "correct": true,
+      "frames_processed": 11,
+      "avg_scores": {
+        "moose": 0.9039,
+        "elk": 0.2752
+      },
+      "vote_counts": {
+        "elk": 3,
+        "moose": 11
+      },
+      "top3": [
+        "moose",
+        "elk"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "opossum",
+      "clip": "opossum_kFKacnjHI20.mp4",
+      "ground_truth": "opossum",
+      "predicted": "opossum",
+      "correct": true,
+      "frames_processed": 82,
+      "avg_scores": {
+        "opossum": 0.3218,
+        "skunk": 0.2947,
+        "raccoon": 0.2804,
+        "deer": 0.1085
+      },
+      "vote_counts": {
+        "opossum": 82,
+        "raccoon": 81,
+        "skunk": 82,
+        "deer": 1
+      },
+      "top3": [
+        "opossum",
+        "skunk",
+        "raccoon"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "raccoon",
+      "clip": "raccoon_p1JwzRGibpQ.mp4",
+      "ground_truth": "raccoon",
+      "predicted": "raccoon",
+      "correct": true,
+      "frames_processed": 95,
+      "avg_scores": {
+        "raccoon": 0.979,
+        "goat": 0.8105,
+        "deer": 0.2654,
+        "opossum": 0.2196,
+        "horse": 0.1738
+      },
+      "vote_counts": {
+        "deer": 15,
+        "moose": 2,
+        "opossum": 4,
+        "skunk": 2,
+        "bear": 11,
+        "goat": 6,
+        "horse": 11,
+        "coyote": 5,
+        "raccoon": 75,
+        "wild_boar": 1
+      },
+      "top3": [
+        "raccoon",
+        "goat",
+        "deer"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "skunk",
+      "clip": "skunk_looking_around.mp4",
+      "ground_truth": "skunk",
+      "predicted": "skunk",
+      "correct": true,
+      "frames_processed": 39,
+      "avg_scores": {
+        "skunk": 0.9771,
+        "horse": 0.2266,
+        "raccoon": 0.1091
+      },
+      "vote_counts": {
+        "skunk": 39,
+        "horse": 1,
+        "raccoon": 1
+      },
+      "top3": [
+        "skunk",
+        "horse",
+        "raccoon"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "wild_boar",
+      "clip": "wild_boar_seen_wild.mp4",
+      "ground_truth": "wild_boar",
+      "predicted": "wild_boar",
+      "correct": true,
+      "frames_processed": 13,
+      "avg_scores": {
+        "wild_boar": 0.9997
+      },
+      "vote_counts": {
+        "wild_boar": 13
+      },
+      "top3": [
+        "wild_boar"
+      ],
+      "top3_correct": true
+    }
+  ]
+}

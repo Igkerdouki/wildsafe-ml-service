@@ -1,0 +1,788 @@
+{
+  "model": "yolov8s-worldv2",
+  "target_classes": [
+    "deer",
+    "raccoon",
+    "fox",
+    "coyote",
+    "opossum",
+    "skunk",
+    "bear",
+    "elk",
+    "moose",
+    "goat",
+    "horse",
+    "wild boar",
+    "person"
+  ],
+  "confidence_threshold": 0.25,
+  "sample_fps": 5.0,
+  "model_load_time_s": 1.89,
+  "clips": [
+    {
+      "species": "bear",
+      "filename": "bear_two_bears_with_human.mp4",
+      "total_frames": 175,
+      "video_fps": 25.0,
+      "processing_fps": 16.81,
+      "frames_processed": 35,
+      "detection_counts": {
+        "person": 35,
+        "bear": 39,
+        "wild boar": 2
+      },
+      "total_detections": 76
+    },
+    {
+      "species": "bear",
+      "filename": "bear_walking_beach.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 18.62,
+      "frames_processed": 25,
+      "detection_counts": {
+        "bear": 25
+      },
+      "total_detections": 25
+    },
+    {
+      "species": "bear",
+      "filename": "bear_walking_woods.mp4",
+      "total_frames": 50,
+      "video_fps": 25.0,
+      "processing_fps": 18.02,
+      "frames_processed": 10,
+      "detection_counts": {
+        "bear": 10
+      },
+      "total_detections": 10
+    },
+    {
+      "species": "coyote",
+      "filename": "coyote_barking_on_rock.mp4",
+      "total_frames": 288,
+      "video_fps": 24.0,
+      "processing_fps": 19.22,
+      "frames_processed": 72,
+      "detection_counts": {
+        "horse": 2,
+        "deer": 53,
+        "coyote": 7
+      },
+      "total_detections": 62
+    },
+    {
+      "species": "coyote",
+      "filename": "coyote_running_on_grass.mp4",
+      "total_frames": 75,
+      "video_fps": 25.0,
+      "processing_fps": 18.65,
+      "frames_processed": 15,
+      "detection_counts": {
+        "horse": 12,
+        "deer": 3,
+        "fox": 2
+      },
+      "total_detections": 17
+    },
+    {
+      "species": "coyote",
+      "filename": "coyote_yawning.mp4",
+      "total_frames": 241,
+      "video_fps": 59.94,
+      "processing_fps": 16.87,
+      "frames_processed": 22,
+      "detection_counts": {
+        "bear": 22,
+        "wild boar": 8
+      },
+      "total_detections": 30
+    },
+    {
+      "species": "deer",
+      "filename": "deer_eating_head_down.mp4",
+      "total_frames": 420,
+      "video_fps": 59.94,
+      "processing_fps": 17.09,
+      "frames_processed": 39,
+      "detection_counts": {
+        "bear": 38,
+        "horse": 2
+      },
+      "total_detections": 40
+    },
+    {
+      "species": "deer",
+      "filename": "deer_multiple_eating_grass.mp4",
+      "total_frames": 144,
+      "video_fps": 23.98,
+      "processing_fps": 18.63,
+      "frames_processed": 36,
+      "detection_counts": {
+        "horse": 141,
+        "coyote": 15,
+        "deer": 29,
+        "goat": 2,
+        "fox": 2
+      },
+      "total_detections": 189
+    },
+    {
+      "species": "deer",
+      "filename": "deer_two_deer_staring.mp4",
+      "total_frames": 421,
+      "video_fps": 59.94,
+      "processing_fps": 16.73,
+      "frames_processed": 39,
+      "detection_counts": {
+        "goat": 35,
+        "deer": 34,
+        "coyote": 44,
+        "wild boar": 1
+      },
+      "total_detections": 114
+    },
+    {
+      "species": "deer",
+      "filename": "deer_walking_through_grass.mp4",
+      "total_frames": 50,
+      "video_fps": 25.0,
+      "processing_fps": 18.01,
+      "frames_processed": 10,
+      "detection_counts": {
+        "horse": 8,
+        "deer": 7,
+        "coyote": 4
+      },
+      "total_detections": 19
+    },
+    {
+      "species": "elk",
+      "filename": "elk_walking_field_1.mp4",
+      "total_frames": 660,
+      "video_fps": 59.94,
+      "processing_fps": 16.76,
+      "frames_processed": 60,
+      "detection_counts": {
+        "horse": 92,
+        "goat": 8,
+        "wild boar": 8,
+        "deer": 19,
+        "fox": 1
+      },
+      "total_detections": 128
+    },
+    {
+      "species": "elk",
+      "filename": "elk_walking_field_2.mp4",
+      "total_frames": 601,
+      "video_fps": 59.94,
+      "processing_fps": 16.78,
+      "frames_processed": 55,
+      "detection_counts": {
+        "horse": 36,
+        "deer": 19,
+        "coyote": 10,
+        "goat": 1
+      },
+      "total_detections": 66
+    },
+    {
+      "species": "elk",
+      "filename": "elk_walking_field_3.mp4",
+      "total_frames": 180,
+      "video_fps": 29.97,
+      "processing_fps": 18.05,
+      "frames_processed": 36,
+      "detection_counts": {
+        "horse": 38,
+        "goat": 3,
+        "deer": 7
+      },
+      "total_detections": 48
+    },
+    {
+      "species": "fox",
+      "filename": "fox_being_pet_grass.mp4",
+      "total_frames": 150,
+      "video_fps": 29.87,
+      "processing_fps": 17.52,
+      "frames_processed": 30,
+      "detection_counts": {
+        "fox": 13,
+        "opossum": 2,
+        "person": 12,
+        "wild boar": 4,
+        "goat": 2
+      },
+      "total_detections": 33
+    },
+    {
+      "species": "fox",
+      "filename": "fox_sitting_on_road.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 18.38,
+      "frames_processed": 25,
+      "detection_counts": {},
+      "total_detections": 0
+    },
+    {
+      "species": "fox",
+      "filename": "fox_sleepy_on_grass.mp4",
+      "total_frames": 225,
+      "video_fps": 25.0,
+      "processing_fps": 18.2,
+      "frames_processed": 45,
+      "detection_counts": {
+        "wild boar": 39,
+        "bear": 42
+      },
+      "total_detections": 81
+    },
+    {
+      "species": "goat",
+      "filename": "goat_licking_arm.mp4",
+      "total_frames": 600,
+      "video_fps": 29.97,
+      "processing_fps": 18.18,
+      "frames_processed": 120,
+      "detection_counts": {
+        "person": 71,
+        "wild boar": 30,
+        "bear": 103,
+        "horse": 5
+      },
+      "total_detections": 209
+    },
+    {
+      "species": "goat",
+      "filename": "goat_walking_field.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 18.76,
+      "frames_processed": 25,
+      "detection_counts": {
+        "wild boar": 14,
+        "coyote": 15,
+        "bear": 3,
+        "deer": 11
+      },
+      "total_detections": 43
+    },
+    {
+      "species": "goat",
+      "filename": "goat_walking_mountain.mp4",
+      "total_frames": 200,
+      "video_fps": 25.0,
+      "processing_fps": 18.15,
+      "frames_processed": 40,
+      "detection_counts": {
+        "coyote": 15,
+        "wild boar": 4,
+        "horse": 5,
+        "deer": 25,
+        "goat": 2,
+        "person": 20
+      },
+      "total_detections": 71
+    },
+    {
+      "species": "horse",
+      "filename": "horse_eating_grass.mp4",
+      "total_frames": 240,
+      "video_fps": 29.97,
+      "processing_fps": 18.55,
+      "frames_processed": 48,
+      "detection_counts": {
+        "horse": 48
+      },
+      "total_detections": 48
+    },
+    {
+      "species": "horse",
+      "filename": "horse_horses_walking.mp4",
+      "total_frames": 331,
+      "video_fps": 29.97,
+      "processing_fps": 18.14,
+      "frames_processed": 66,
+      "detection_counts": {
+        "horse": 112,
+        "person": 2
+      },
+      "total_detections": 114
+    },
+    {
+      "species": "horse",
+      "filename": "horse_walking_field.mp4",
+      "total_frames": 120,
+      "video_fps": 29.97,
+      "processing_fps": 18.11,
+      "frames_processed": 24,
+      "detection_counts": {
+        "horse": 38,
+        "person": 12
+      },
+      "total_detections": 50
+    },
+    {
+      "species": "moose",
+      "filename": "moose_walking_field_1.mp4",
+      "total_frames": 72,
+      "video_fps": 23.98,
+      "processing_fps": 19.2,
+      "frames_processed": 18,
+      "detection_counts": {
+        "person": 5,
+        "horse": 10,
+        "coyote": 2
+      },
+      "total_detections": 17
+    },
+    {
+      "species": "moose",
+      "filename": "moose_walking_field_2.mp4",
+      "total_frames": 330,
+      "video_fps": 30.0,
+      "processing_fps": 17.83,
+      "frames_processed": 55,
+      "detection_counts": {
+        "horse": 54,
+        "person": 3,
+        "deer": 2
+      },
+      "total_detections": 59
+    },
+    {
+      "species": "moose",
+      "filename": "moose_walking_field_3.mp4",
+      "total_frames": 192,
+      "video_fps": 24.0,
+      "processing_fps": 17.96,
+      "frames_processed": 48,
+      "detection_counts": {
+        "horse": 47
+      },
+      "total_detections": 47
+    },
+    {
+      "species": "opossum",
+      "filename": "opossum_eating_bananas.mp4",
+      "total_frames": 300,
+      "video_fps": 29.97,
+      "processing_fps": 18.4,
+      "frames_processed": 60,
+      "detection_counts": {
+        "person": 1
+      },
+      "total_detections": 1
+    },
+    {
+      "species": "opossum",
+      "filename": "opossum_eating_from_person.mp4",
+      "total_frames": 240,
+      "video_fps": 29.97,
+      "processing_fps": 18.14,
+      "frames_processed": 48,
+      "detection_counts": {
+        "person": 48,
+        "raccoon": 40,
+        "fox": 29,
+        "skunk": 23
+      },
+      "total_detections": 140
+    },
+    {
+      "species": "opossum",
+      "filename": "opossum_walking_through_woods.mp4",
+      "total_frames": 360,
+      "video_fps": 29.97,
+      "processing_fps": 18.34,
+      "frames_processed": 72,
+      "detection_counts": {
+        "bear": 72
+      },
+      "total_detections": 72
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_moving_eating_food.mp4",
+      "total_frames": 100,
+      "video_fps": 25.0,
+      "processing_fps": 18.33,
+      "frames_processed": 20,
+      "detection_counts": {
+        "fox": 5
+      },
+      "total_detections": 5
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_on_boat_with_person.mp4",
+      "total_frames": 100,
+      "video_fps": 25.0,
+      "processing_fps": 17.81,
+      "frames_processed": 20,
+      "detection_counts": {
+        "person": 36
+      },
+      "total_detections": 36
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_sitting_in_wheel.mp4",
+      "total_frames": 91,
+      "video_fps": 29.97,
+      "processing_fps": 17.96,
+      "frames_processed": 18,
+      "detection_counts": {
+        "fox": 18
+      },
+      "total_detections": 18
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_still_on_road.mp4",
+      "total_frames": 120,
+      "video_fps": 23.98,
+      "processing_fps": 19.01,
+      "frames_processed": 30,
+      "detection_counts": {},
+      "total_detections": 0
+    },
+    {
+      "species": "skunk",
+      "filename": "skunk_eating_from_bowl.mp4",
+      "total_frames": 180,
+      "video_fps": 29.97,
+      "processing_fps": 18.04,
+      "frames_processed": 36,
+      "detection_counts": {
+        "bear": 21
+      },
+      "total_detections": 21
+    },
+    {
+      "species": "skunk",
+      "filename": "skunk_group_towards_camera.mp4",
+      "total_frames": 270,
+      "video_fps": 29.97,
+      "processing_fps": 18.16,
+      "frames_processed": 54,
+      "detection_counts": {
+        "fox": 9,
+        "person": 5,
+        "opossum": 4,
+        "skunk": 1,
+        "horse": 1,
+        "deer": 1
+      },
+      "total_detections": 21
+    },
+    {
+      "species": "skunk",
+      "filename": "skunk_looking_around.mp4",
+      "total_frames": 390,
+      "video_fps": 30.0,
+      "processing_fps": 17.84,
+      "frames_processed": 65,
+      "detection_counts": {
+        "person": 106
+      },
+      "total_detections": 106
+    },
+    {
+      "species": "wild_boar",
+      "filename": "wild_boar_eating_wild.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 18.46,
+      "frames_processed": 25,
+      "detection_counts": {
+        "bear": 21,
+        "wild boar": 20
+      },
+      "total_detections": 41
+    },
+    {
+      "species": "wild_boar",
+      "filename": "wild_boar_running_forest.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 17.91,
+      "frames_processed": 25,
+      "detection_counts": {
+        "fox": 20,
+        "bear": 6,
+        "deer": 3,
+        "horse": 3
+      },
+      "total_detections": 32
+    },
+    {
+      "species": "wild_boar",
+      "filename": "wild_boar_seen_wild.mp4",
+      "total_frames": 100,
+      "video_fps": 25.0,
+      "processing_fps": 17.52,
+      "frames_processed": 20,
+      "detection_counts": {
+        "bear": 20
+      },
+      "total_detections": 20
+    }
+  ],
+  "summary": {
+    "total_clips": 38,
+    "total_detections": 2109,
+    "avg_processing_fps": 18.03,
+    "species_breakdown": {
+      "bear": {
+        "clips": 3,
+        "detected_as": {
+          "person": 35,
+          "bear": 74,
+          "wild boar": 2
+        },
+        "total_detections": 111
+      },
+      "coyote": {
+        "clips": 3,
+        "detected_as": {
+          "horse": 14,
+          "deer": 56,
+          "coyote": 7,
+          "fox": 2,
+          "bear": 22,
+          "wild boar": 8
+        },
+        "total_detections": 109
+      },
+      "deer": {
+        "clips": 4,
+        "detected_as": {
+          "bear": 38,
+          "horse": 151,
+          "coyote": 63,
+          "deer": 70,
+          "goat": 37,
+          "fox": 2,
+          "wild boar": 1
+        },
+        "total_detections": 362
+      },
+      "elk": {
+        "clips": 3,
+        "detected_as": {
+          "horse": 166,
+          "goat": 12,
+          "wild boar": 8,
+          "deer": 45,
+          "fox": 1,
+          "coyote": 10
+        },
+        "total_detections": 242
+      },
+      "fox": {
+        "clips": 3,
+        "detected_as": {
+          "fox": 13,
+          "opossum": 2,
+          "person": 12,
+          "wild boar": 43,
+          "goat": 2,
+          "bear": 42
+        },
+        "total_detections": 114
+      },
+      "goat": {
+        "clips": 3,
+        "detected_as": {
+          "person": 91,
+          "wild boar": 48,
+          "bear": 106,
+          "horse": 10,
+          "coyote": 30,
+          "deer": 36,
+          "goat": 2
+        },
+        "total_detections": 323
+      },
+      "horse": {
+        "clips": 3,
+        "detected_as": {
+          "horse": 198,
+          "person": 14
+        },
+        "total_detections": 212
+      },
+      "moose": {
+        "clips": 3,
+        "detected_as": {
+          "person": 8,
+          "horse": 111,
+          "coyote": 2,
+          "deer": 2
+        },
+        "total_detections": 123
+      },
+      "opossum": {
+        "clips": 3,
+        "detected_as": {
+          "person": 49,
+          "raccoon": 40,
+          "fox": 29,
+          "skunk": 23,
+          "bear": 72
+        },
+        "total_detections": 213
+      },
+      "raccoon": {
+        "clips": 4,
+        "detected_as": {
+          "fox": 23,
+          "person": 36
+        },
+        "total_detections": 59
+      },
+      "skunk": {
+        "clips": 3,
+        "detected_as": {
+          "bear": 21,
+          "fox": 9,
+          "person": 111,
+          "opossum": 4,
+          "skunk": 1,
+          "horse": 1,
+          "deer": 1
+        },
+        "total_detections": 148
+      },
+      "wild_boar": {
+        "clips": 3,
+        "detected_as": {
+          "bear": 47,
+          "wild boar": 20,
+          "fox": 20,
+          "deer": 3,
+          "horse": 3
+        },
+        "total_detections": 93
+      }
+    }
+  },
+  "scores": {
+    "per_species": {
+      "bear": {
+        "expected_label": "bear",
+        "correct_detections": 74,
+        "total_detections": 111,
+        "accuracy_pct": 66.7,
+        "clips_with_correct": 3,
+        "total_clips": 3,
+        "detection_rate_pct": 100.0
+      },
+      "coyote": {
+        "expected_label": "coyote",
+        "correct_detections": 7,
+        "total_detections": 109,
+        "accuracy_pct": 6.4,
+        "clips_with_correct": 1,
+        "total_clips": 3,
+        "detection_rate_pct": 33.3
+      },
+      "deer": {
+        "expected_label": "deer",
+        "correct_detections": 70,
+        "total_detections": 362,
+        "accuracy_pct": 19.3,
+        "clips_with_correct": 3,
+        "total_clips": 4,
+        "detection_rate_pct": 75.0
+      },
+      "elk": {
+        "expected_label": "elk",
+        "correct_detections": 0,
+        "total_detections": 242,
+        "accuracy_pct": 0.0,
+        "clips_with_correct": 0,
+        "total_clips": 3,
+        "detection_rate_pct": 0.0
+      },
+      "fox": {
+        "expected_label": "fox",
+        "correct_detections": 13,
+        "total_detections": 114,
+        "accuracy_pct": 11.4,
+        "clips_with_correct": 1,
+        "total_clips": 3,
+        "detection_rate_pct": 33.3
+      },
+      "goat": {
+        "expected_label": "goat",
+        "correct_detections": 2,
+        "total_detections": 323,
+        "accuracy_pct": 0.6,
+        "clips_with_correct": 1,
+        "total_clips": 3,
+        "detection_rate_pct": 33.3
+      },
+      "horse": {
+        "expected_label": "horse",
+        "correct_detections": 198,
+        "total_detections": 212,
+        "accuracy_pct": 93.4,
+        "clips_with_correct": 3,
+        "total_clips": 3,
+        "detection_rate_pct": 100.0
+      },
+      "moose": {
+        "expected_label": "moose",
+        "correct_detections": 0,
+        "total_detections": 123,
+        "accuracy_pct": 0.0,
+        "clips_with_correct": 0,
+        "total_clips": 3,
+        "detection_rate_pct": 0.0
+      },
+      "opossum": {
+        "expected_label": "opossum",
+        "correct_detections": 0,
+        "total_detections": 213,
+        "accuracy_pct": 0.0,
+        "clips_with_correct": 0,
+        "total_clips": 3,
+        "detection_rate_pct": 0.0
+      },
+      "raccoon": {
+        "expected_label": "raccoon",
+        "correct_detections": 0,
+        "total_detections": 59,
+        "accuracy_pct": 0.0,
+        "clips_with_correct": 0,
+        "total_clips": 4,
+        "detection_rate_pct": 0.0
+      },
+      "skunk": {
+        "expected_label": "skunk",
+        "correct_detections": 1,
+        "total_detections": 148,
+        "accuracy_pct": 0.7,
+        "clips_with_correct": 1,
+        "total_clips": 3,
+        "detection_rate_pct": 33.3
+      },
+      "wild_boar": {
+        "expected_label": "wild boar",
+        "correct_detections": 20,
+        "total_detections": 93,
+        "accuracy_pct": 21.5,
+        "clips_with_correct": 1,
+        "total_clips": 3,
+        "detection_rate_pct": 33.3
+      }
+    },
+    "overall_accuracy": 18.3,
+    "overall_detection_rate": 36.8
+  }
+}

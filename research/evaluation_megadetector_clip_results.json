@@ -1,0 +1,371 @@
+{
+  "total_clips": 12,
+  "clips_correct": 7,
+  "clips_top3_correct": 7,
+  "per_species": {
+    "bear": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "coyote": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "deer": {
+      "clips": 1,
+      "correct": 0,
+      "top3_correct": 0
+    },
+    "elk": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "fox": {
+      "clips": 1,
+      "correct": 0,
+      "top3_correct": 0
+    },
+    "goat": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "horse": {
+      "clips": 1,
+      "correct": 0,
+      "top3_correct": 0
+    },
+    "moose": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "opossum": {
+      "clips": 1,
+      "correct": 0,
+      "top3_correct": 0
+    },
+    "raccoon": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    },
+    "skunk": {
+      "clips": 1,
+      "correct": 0,
+      "top3_correct": 0
+    },
+    "wild_boar": {
+      "clips": 1,
+      "correct": 1,
+      "top3_correct": 1
+    }
+  },
+  "clip_details": [
+    {
+      "species": "bear",
+      "clip": "bear_aAfXsxLSblM.mp4",
+      "ground_truth": "bear",
+      "predicted": "bear",
+      "correct": true,
+      "detections": 250,
+      "weighted_scores": {
+        "bear": 43.329,
+        "wild_boar": 11.194,
+        "opossum": 5.874
+      },
+      "vote_counts": {
+        "bear": 148,
+        "wild_boar": 41,
+        "opossum": 21,
+        "raccoon": 6,
+        "skunk": 15,
+        "goat": 18,
+        "coyote": 1
+      },
+      "top3": [
+        "bear",
+        "wild_boar",
+        "opossum"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "coyote",
+      "clip": "coyote_SWbbQpKE060.mp4",
+      "ground_truth": "coyote",
+      "predicted": "coyote",
+      "correct": true,
+      "detections": 467,
+      "weighted_scores": {
+        "coyote": 64.734,
+        "deer": 41.662,
+        "opossum": 10.395
+      },
+      "vote_counts": {
+        "coyote": 218,
+        "skunk": 1,
+        "raccoon": 17,
+        "deer": 137,
+        "wild_boar": 32,
+        "moose": 18,
+        "opossum": 37,
+        "horse": 4,
+        "fox": 1,
+        "goat": 2
+      },
+      "top3": [
+        "coyote",
+        "deer",
+        "opossum"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "deer",
+      "clip": "deer_csUflfhVHk8.mp4",
+      "ground_truth": "deer",
+      "predicted": "moose",
+      "correct": false,
+      "detections": 6,
+      "weighted_scores": {
+        "moose": 1.868
+      },
+      "vote_counts": {
+        "moose": 6
+      },
+      "top3": [
+        "moose"
+      ],
+      "top3_correct": false
+    },
+    {
+      "species": "elk",
+      "clip": "elk_walking_field_1.mp4",
+      "ground_truth": "elk",
+      "predicted": "elk",
+      "correct": true,
+      "detections": 129,
+      "weighted_scores": {
+        "elk": 25.808,
+        "moose": 10.667,
+        "goat": 1.733
+      },
+      "vote_counts": {
+        "elk": 77,
+        "bear": 3,
+        "wild_boar": 5,
+        "moose": 36,
+        "opossum": 1,
+        "goat": 6,
+        "horse": 1
+      },
+      "top3": [
+        "elk",
+        "moose",
+        "goat"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "fox",
+      "clip": "fox_n_J2LsLVE0w.mp4",
+      "ground_truth": "fox",
+      "predicted": "wild_boar",
+      "correct": false,
+      "detections": 15,
+      "weighted_scores": {
+        "wild_boar": 2.207,
+        "bear": 0.739,
+        "horse": 0.254
+      },
+      "vote_counts": {
+        "wild_boar": 9,
+        "bear": 3,
+        "goat": 1,
+        "horse": 1,
+        "raccoon": 1
+      },
+      "top3": [
+        "wild_boar",
+        "bear",
+        "horse"
+      ],
+      "top3_correct": false
+    },
+    {
+      "species": "goat",
+      "clip": "goat_RJpnxOilqnU.mp4",
+      "ground_truth": "goat",
+      "predicted": "goat",
+      "correct": true,
+      "detections": 194,
+      "weighted_scores": {
+        "goat": 54.881,
+        "skunk": 2.618,
+        "bear": 2.332
+      },
+      "vote_counts": {
+        "goat": 173,
+        "opossum": 1,
+        "skunk": 9,
+        "bear": 8,
+        "wild_boar": 2,
+        "fox": 1
+      },
+      "top3": [
+        "goat",
+        "skunk",
+        "bear"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "horse",
+      "clip": "horse_XHnjlNMElvs.mp4",
+      "ground_truth": "horse",
+      "predicted": "skunk",
+      "correct": false,
+      "detections": 100,
+      "weighted_scores": {
+        "skunk": 12.44,
+        "opossum": 8.026,
+        "wild_boar": 3.036
+      },
+      "vote_counts": {
+        "skunk": 47,
+        "wild_boar": 12,
+        "opossum": 31,
+        "goat": 10
+      },
+      "top3": [
+        "skunk",
+        "opossum",
+        "wild_boar"
+      ],
+      "top3_correct": false
+    },
+    {
+      "species": "moose",
+      "clip": "moose_walking_field_1.mp4",
+      "ground_truth": "moose",
+      "predicted": "moose",
+      "correct": true,
+      "detections": 36,
+      "weighted_scores": {
+        "moose": 6.48,
+        "wild_boar": 2.569,
+        "elk": 0.549
+      },
+      "vote_counts": {
+        "elk": 2,
+        "bear": 1,
+        "moose": 21,
+        "wild_boar": 9,
+        "goat": 1,
+        "skunk": 1,
+        "coyote": 1
+      },
+      "top3": [
+        "moose",
+        "wild_boar",
+        "elk"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "opossum",
+      "clip": "opossum_kFKacnjHI20.mp4",
+      "ground_truth": "opossum",
+      "predicted": "none",
+      "correct": false,
+      "detections": 0,
+      "weighted_scores": {},
+      "vote_counts": {},
+      "top3": [],
+      "top3_correct": false
+    },
+    {
+      "species": "raccoon",
+      "clip": "raccoon_p1JwzRGibpQ.mp4",
+      "ground_truth": "raccoon",
+      "predicted": "raccoon",
+      "correct": true,
+      "detections": 129,
+      "weighted_scores": {
+        "raccoon": 22.697,
+        "opossum": 12.443,
+        "bear": 1.302
+      },
+      "vote_counts": {
+        "opossum": 45,
+        "raccoon": 78,
+        "bear": 5,
+        "wild_boar": 1
+      },
+      "top3": [
+        "raccoon",
+        "opossum",
+        "bear"
+      ],
+      "top3_correct": true
+    },
+    {
+      "species": "skunk",
+      "clip": "skunk_E7lDHRy8XE0.mp4",
+      "ground_truth": "skunk",
+      "predicted": "fox",
+      "correct": false,
+      "detections": 220,
+      "weighted_scores": {
+        "fox": 19.544,
+        "wild_boar": 18.01,
+        "bear": 11.135
+      },
+      "vote_counts": {
+        "fox": 65,
+        "deer": 11,
+        "horse": 2,
+        "elk": 1,
+        "wild_boar": 61,
+        "moose": 2,
+        "coyote": 5,
+        "raccoon": 14,
+        "goat": 1,
+        "skunk": 14,
+        "bear": 38,
+        "opossum": 6
+      },
+      "top3": [
+        "fox",
+        "wild_boar",
+        "bear"
+      ],
+      "top3_correct": false
+    },
+    {
+      "species": "wild_boar",
+      "clip": "wild_boar_seen_wild.mp4",
+      "ground_truth": "wild_boar",
+      "predicted": "wild_boar",
+      "correct": true,
+      "detections": 23,
+      "weighted_scores": {
+        "wild_boar": 6.668,
+        "deer": 0.268
+      },
+      "vote_counts": {
+        "wild_boar": 22,
+        "deer": 1
+      },
+      "top3": [
+        "wild_boar",
+        "deer"
+      ],
+      "top3_correct": true
+    }
+  ]
+}

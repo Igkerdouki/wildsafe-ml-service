@@ -1,0 +1,637 @@
+{
+  "model": "MegaDetectorV6-MDV6-yolov10-c",
+  "device": "mps",
+  "classes": {
+    "0": "animal",
+    "1": "person",
+    "2": "vehicle"
+  },
+  "confidence_threshold": 0.25,
+  "sample_fps": 5.0,
+  "model_load_time_s": 0.07,
+  "clips": [
+    {
+      "species": "bear",
+      "filename": "bear_two_bears_with_human.mp4",
+      "total_frames": 175,
+      "video_fps": 25.0,
+      "processing_fps": 6.19,
+      "frames_processed": 35,
+      "detection_counts": {
+        "animal": 71,
+        "person": 33,
+        "vehicle": 0
+      },
+      "total_detections": 104
+    },
+    {
+      "species": "bear",
+      "filename": "bear_walking_beach.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 6.16,
+      "frames_processed": 25,
+      "detection_counts": {
+        "animal": 28,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 28
+    },
+    {
+      "species": "bear",
+      "filename": "bear_walking_woods.mp4",
+      "total_frames": 50,
+      "video_fps": 25.0,
+      "processing_fps": 6.19,
+      "frames_processed": 10,
+      "detection_counts": {
+        "animal": 12,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 12
+    },
+    {
+      "species": "coyote",
+      "filename": "coyote_barking_on_rock.mp4",
+      "total_frames": 288,
+      "video_fps": 24.0,
+      "processing_fps": 6.49,
+      "frames_processed": 72,
+      "detection_counts": {
+        "animal": 94,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 94
+    },
+    {
+      "species": "coyote",
+      "filename": "coyote_running_on_grass.mp4",
+      "total_frames": 75,
+      "video_fps": 25.0,
+      "processing_fps": 6.26,
+      "frames_processed": 15,
+      "detection_counts": {
+        "animal": 14,
+        "person": 0,
+        "vehicle": 12
+      },
+      "total_detections": 26
+    },
+    {
+      "species": "coyote",
+      "filename": "coyote_yawning.mp4",
+      "total_frames": 241,
+      "video_fps": 59.94,
+      "processing_fps": 6.21,
+      "frames_processed": 22,
+      "detection_counts": {
+        "animal": 31,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 31
+    },
+    {
+      "species": "deer",
+      "filename": "deer_eating_head_down.mp4",
+      "total_frames": 420,
+      "video_fps": 59.94,
+      "processing_fps": 6.22,
+      "frames_processed": 39,
+      "detection_counts": {
+        "animal": 80,
+        "person": 2,
+        "vehicle": 1
+      },
+      "total_detections": 83
+    },
+    {
+      "species": "deer",
+      "filename": "deer_multiple_eating_grass.mp4",
+      "total_frames": 144,
+      "video_fps": 23.98,
+      "processing_fps": 6.31,
+      "frames_processed": 36,
+      "detection_counts": {
+        "animal": 248,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 248
+    },
+    {
+      "species": "deer",
+      "filename": "deer_two_deer_staring.mp4",
+      "total_frames": 421,
+      "video_fps": 59.94,
+      "processing_fps": 6.05,
+      "frames_processed": 39,
+      "detection_counts": {
+        "animal": 80,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 80
+    },
+    {
+      "species": "deer",
+      "filename": "deer_walking_through_grass.mp4",
+      "total_frames": 50,
+      "video_fps": 25.0,
+      "processing_fps": 6.4,
+      "frames_processed": 10,
+      "detection_counts": {
+        "animal": 11,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 11
+    },
+    {
+      "species": "elk",
+      "filename": "elk_walking_field_1.mp4",
+      "total_frames": 660,
+      "video_fps": 59.94,
+      "processing_fps": 6.01,
+      "frames_processed": 60,
+      "detection_counts": {
+        "animal": 129,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 129
+    },
+    {
+      "species": "elk",
+      "filename": "elk_walking_field_2.mp4",
+      "total_frames": 601,
+      "video_fps": 59.94,
+      "processing_fps": 6.06,
+      "frames_processed": 55,
+      "detection_counts": {
+        "animal": 83,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 83
+    },
+    {
+      "species": "elk",
+      "filename": "elk_walking_field_3.mp4",
+      "total_frames": 180,
+      "video_fps": 29.97,
+      "processing_fps": 6.32,
+      "frames_processed": 36,
+      "detection_counts": {
+        "animal": 42,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 42
+    },
+    {
+      "species": "fox",
+      "filename": "fox_being_pet_grass.mp4",
+      "total_frames": 150,
+      "video_fps": 29.87,
+      "processing_fps": 6.3,
+      "frames_processed": 30,
+      "detection_counts": {
+        "animal": 47,
+        "person": 9,
+        "vehicle": 0
+      },
+      "total_detections": 56
+    },
+    {
+      "species": "fox",
+      "filename": "fox_sitting_on_road.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 6.3,
+      "frames_processed": 25,
+      "detection_counts": {
+        "animal": 26,
+        "person": 1,
+        "vehicle": 0
+      },
+      "total_detections": 27
+    },
+    {
+      "species": "fox",
+      "filename": "fox_sleepy_on_grass.mp4",
+      "total_frames": 225,
+      "video_fps": 25.0,
+      "processing_fps": 6.3,
+      "frames_processed": 45,
+      "detection_counts": {
+        "animal": 101,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 101
+    },
+    {
+      "species": "goat",
+      "filename": "goat_licking_arm.mp4",
+      "total_frames": 600,
+      "video_fps": 29.97,
+      "processing_fps": 6.23,
+      "frames_processed": 120,
+      "detection_counts": {
+        "animal": 254,
+        "person": 5,
+        "vehicle": 0
+      },
+      "total_detections": 259
+    },
+    {
+      "species": "goat",
+      "filename": "goat_walking_field.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 6.27,
+      "frames_processed": 25,
+      "detection_counts": {
+        "animal": 25,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 25
+    },
+    {
+      "species": "goat",
+      "filename": "goat_walking_mountain.mp4",
+      "total_frames": 200,
+      "video_fps": 25.0,
+      "processing_fps": 6.26,
+      "frames_processed": 40,
+      "detection_counts": {
+        "animal": 79,
+        "person": 7,
+        "vehicle": 0
+      },
+      "total_detections": 86
+    },
+    {
+      "species": "horse",
+      "filename": "horse_eating_grass.mp4",
+      "total_frames": 240,
+      "video_fps": 29.97,
+      "processing_fps": 6.1,
+      "frames_processed": 48,
+      "detection_counts": {
+        "animal": 49,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 49
+    },
+    {
+      "species": "horse",
+      "filename": "horse_horses_walking.mp4",
+      "total_frames": 331,
+      "video_fps": 29.97,
+      "processing_fps": 5.96,
+      "frames_processed": 66,
+      "detection_counts": {
+        "animal": 116,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 116
+    },
+    {
+      "species": "horse",
+      "filename": "horse_walking_field.mp4",
+      "total_frames": 120,
+      "video_fps": 29.97,
+      "processing_fps": 6.26,
+      "frames_processed": 24,
+      "detection_counts": {
+        "animal": 33,
+        "person": 6,
+        "vehicle": 14
+      },
+      "total_detections": 53
+    },
+    {
+      "species": "moose",
+      "filename": "moose_walking_field_1.mp4",
+      "total_frames": 72,
+      "video_fps": 23.98,
+      "processing_fps": 6.25,
+      "frames_processed": 18,
+      "detection_counts": {
+        "animal": 31,
+        "person": 5,
+        "vehicle": 0
+      },
+      "total_detections": 36
+    },
+    {
+      "species": "moose",
+      "filename": "moose_walking_field_2.mp4",
+      "total_frames": 330,
+      "video_fps": 30.0,
+      "processing_fps": 6.2,
+      "frames_processed": 55,
+      "detection_counts": {
+        "animal": 58,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 58
+    },
+    {
+      "species": "moose",
+      "filename": "moose_walking_field_3.mp4",
+      "total_frames": 192,
+      "video_fps": 24.0,
+      "processing_fps": 6.27,
+      "frames_processed": 48,
+      "detection_counts": {
+        "animal": 48,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 48
+    },
+    {
+      "species": "opossum",
+      "filename": "opossum_eating_bananas.mp4",
+      "total_frames": 300,
+      "video_fps": 29.97,
+      "processing_fps": 6.28,
+      "frames_processed": 60,
+      "detection_counts": {
+        "animal": 182,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 182
+    },
+    {
+      "species": "opossum",
+      "filename": "opossum_eating_from_person.mp4",
+      "total_frames": 240,
+      "video_fps": 29.97,
+      "processing_fps": 6.16,
+      "frames_processed": 48,
+      "detection_counts": {
+        "animal": 47,
+        "person": 51,
+        "vehicle": 0
+      },
+      "total_detections": 98
+    },
+    {
+      "species": "opossum",
+      "filename": "opossum_walking_through_woods.mp4",
+      "total_frames": 360,
+      "video_fps": 29.97,
+      "processing_fps": 6.18,
+      "frames_processed": 72,
+      "detection_counts": {
+        "animal": 77,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 77
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_moving_eating_food.mp4",
+      "total_frames": 100,
+      "video_fps": 25.0,
+      "processing_fps": 6.1,
+      "frames_processed": 20,
+      "detection_counts": {
+        "animal": 14,
+        "person": 1,
+        "vehicle": 0
+      },
+      "total_detections": 15
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_on_boat_with_person.mp4",
+      "total_frames": 100,
+      "video_fps": 25.0,
+      "processing_fps": 6.06,
+      "frames_processed": 20,
+      "detection_counts": {
+        "animal": 0,
+        "person": 29,
+        "vehicle": 18
+      },
+      "total_detections": 47
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_sitting_in_wheel.mp4",
+      "total_frames": 91,
+      "video_fps": 29.97,
+      "processing_fps": 6.13,
+      "frames_processed": 18,
+      "detection_counts": {
+        "animal": 17,
+        "person": 0,
+        "vehicle": 8
+      },
+      "total_detections": 25
+    },
+    {
+      "species": "raccoon",
+      "filename": "raccoon_still_on_road.mp4",
+      "total_frames": 120,
+      "video_fps": 23.98,
+      "processing_fps": 6.22,
+      "frames_processed": 30,
+      "detection_counts": {
+        "animal": 47,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 47
+    },
+    {
+      "species": "skunk",
+      "filename": "skunk_eating_from_bowl.mp4",
+      "total_frames": 180,
+      "video_fps": 29.97,
+      "processing_fps": 6.12,
+      "frames_processed": 36,
+      "detection_counts": {
+        "animal": 37,
+        "person": 0,
+        "vehicle": 1
+      },
+      "total_detections": 38
+    },
+    {
+      "species": "skunk",
+      "filename": "skunk_group_towards_camera.mp4",
+      "total_frames": 270,
+      "video_fps": 29.97,
+      "processing_fps": 6.14,
+      "frames_processed": 54,
+      "detection_counts": {
+        "animal": 60,
+        "person": 5,
+        "vehicle": 11
+      },
+      "total_detections": 76
+    },
+    {
+      "species": "skunk",
+      "filename": "skunk_looking_around.mp4",
+      "total_frames": 390,
+      "video_fps": 30.0,
+      "processing_fps": 6.11,
+      "frames_processed": 65,
+      "detection_counts": {
+        "animal": 0,
+        "person": 37,
+        "vehicle": 83
+      },
+      "total_detections": 120
+    },
+    {
+      "species": "wild_boar",
+      "filename": "wild_boar_eating_wild.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 6.14,
+      "frames_processed": 25,
+      "detection_counts": {
+        "animal": 37,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 37
+    },
+    {
+      "species": "wild_boar",
+      "filename": "wild_boar_running_forest.mp4",
+      "total_frames": 125,
+      "video_fps": 25.0,
+      "processing_fps": 6.04,
+      "frames_processed": 25,
+      "detection_counts": {
+        "animal": 25,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 25
+    },
+    {
+      "species": "wild_boar",
+      "filename": "wild_boar_seen_wild.mp4",
+      "total_frames": 100,
+      "video_fps": 25.0,
+      "processing_fps": 6.11,
+      "frames_processed": 20,
+      "detection_counts": {
+        "animal": 21,
+        "person": 0,
+        "vehicle": 0
+      },
+      "total_detections": 21
+    }
+  ],
+  "summary": {
+    "total_clips": 38,
+    "total_detections": 2693,
+    "avg_processing_fps": 6.19,
+    "species_breakdown": {
+      "bear": {
+        "clips": 3,
+        "animal": 111,
+        "person": 33,
+        "vehicle": 0,
+        "total_detections": 144
+      },
+      "coyote": {
+        "clips": 3,
+        "animal": 139,
+        "person": 0,
+        "vehicle": 12,
+        "total_detections": 151
+      },
+      "deer": {
+        "clips": 4,
+        "animal": 419,
+        "person": 2,
+        "vehicle": 1,
+        "total_detections": 422
+      },
+      "elk": {
+        "clips": 3,
+        "animal": 254,
+        "person": 0,
+        "vehicle": 0,
+        "total_detections": 254
+      },
+      "fox": {
+        "clips": 3,
+        "animal": 174,
+        "person": 10,
+        "vehicle": 0,
+        "total_detections": 184
+      },
+      "goat": {
+        "clips": 3,
+        "animal": 358,
+        "person": 12,
+        "vehicle": 0,
+        "total_detections": 370
+      },
+      "horse": {
+        "clips": 3,
+        "animal": 198,
+        "person": 6,
+        "vehicle": 14,
+        "total_detections": 218
+      },
+      "moose": {
+        "clips": 3,
+        "animal": 137,
+        "person": 5,
+        "vehicle": 0,
+        "total_detections": 142
+      },
+      "opossum": {
+        "clips": 3,
+        "animal": 306,
+        "person": 51,
+        "vehicle": 0,
+        "total_detections": 357
+      },
+      "raccoon": {
+        "clips": 4,
+        "animal": 78,
+        "person": 30,
+        "vehicle": 26,
+        "total_detections": 134
+      },
+      "skunk": {
+        "clips": 3,
+        "animal": 97,
+        "person": 42,
+        "vehicle": 95,
+        "total_detections": 234
+      },
+      "wild_boar": {
+        "clips": 3,
+        "animal": 83,
+        "person": 0,
+        "vehicle": 0,
+        "total_detections": 83
+      }
+    }
+  }
+}

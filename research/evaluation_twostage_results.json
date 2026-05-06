@@ -1,0 +1,229 @@
+{
+  "total_clips": 12,
+  "clips_correct": 4,
+  "per_species": {
+    "bear": {
+      "clips": 1,
+      "correct": 0
+    },
+    "coyote": {
+      "clips": 1,
+      "correct": 1
+    },
+    "deer": {
+      "clips": 1,
+      "correct": 0
+    },
+    "elk": {
+      "clips": 1,
+      "correct": 1
+    },
+    "fox": {
+      "clips": 1,
+      "correct": 0
+    },
+    "goat": {
+      "clips": 1,
+      "correct": 1
+    },
+    "horse": {
+      "clips": 1,
+      "correct": 0
+    },
+    "moose": {
+      "clips": 1,
+      "correct": 0
+    },
+    "opossum": {
+      "clips": 1,
+      "correct": 0
+    },
+    "raccoon": {
+      "clips": 1,
+      "correct": 1
+    },
+    "skunk": {
+      "clips": 1,
+      "correct": 0
+    },
+    "wild_boar": {
+      "clips": 1,
+      "correct": 0
+    }
+  },
+  "clip_details": [
+    {
+      "species": "bear",
+      "clip": "bear_aAfXsxLSblM.mp4",
+      "ground_truth": "bear",
+      "predicted": "fox",
+      "correct": false,
+      "detections": 202,
+      "votes": {
+        "bear": 14,
+        "raccoon": 23,
+        "fox": 68,
+        "moose": 24,
+        "wild_boar": 36,
+        "goat": 31,
+        "skunk": 1,
+        "horse": 5
+      }
+    },
+    {
+      "species": "coyote",
+      "clip": "coyote_SWbbQpKE060.mp4",
+      "ground_truth": "coyote",
+      "predicted": "coyote",
+      "correct": true,
+      "detections": 406,
+      "votes": {
+        "coyote": 329,
+        "opossum": 5,
+        "wild_boar": 30,
+        "raccoon": 2,
+        "deer": 14,
+        "goat": 7,
+        "bear": 5,
+        "moose": 1,
+        "horse": 1,
+        "fox": 1,
+        "skunk": 11
+      }
+    },
+    {
+      "species": "deer",
+      "clip": "deer_csUflfhVHk8.mp4",
+      "ground_truth": "deer",
+      "predicted": "none",
+      "correct": false,
+      "detections": 0,
+      "votes": {}
+    },
+    {
+      "species": "elk",
+      "clip": "elk_walking_field_1.mp4",
+      "ground_truth": "elk",
+      "predicted": "elk",
+      "correct": true,
+      "detections": 126,
+      "votes": {
+        "elk": 125,
+        "moose": 1
+      }
+    },
+    {
+      "species": "fox",
+      "clip": "fox_n_J2LsLVE0w.mp4",
+      "ground_truth": "fox",
+      "predicted": "goat",
+      "correct": false,
+      "detections": 10,
+      "votes": {
+        "goat": 8,
+        "horse": 2
+      }
+    },
+    {
+      "species": "goat",
+      "clip": "goat_RJpnxOilqnU.mp4",
+      "ground_truth": "goat",
+      "predicted": "goat",
+      "correct": true,
+      "detections": 248,
+      "votes": {
+        "goat": 215,
+        "wild_boar": 12,
+        "moose": 5,
+        "raccoon": 2,
+        "horse": 14
+      }
+    },
+    {
+      "species": "horse",
+      "clip": "horse_XHnjlNMElvs.mp4",
+      "ground_truth": "horse",
+      "predicted": "wild_boar",
+      "correct": false,
+      "detections": 89,
+      "votes": {
+        "wild_boar": 86,
+        "moose": 3
+      }
+    },
+    {
+      "species": "moose",
+      "clip": "moose_walking_field_1.mp4",
+      "ground_truth": "moose",
+      "predicted": "elk",
+      "correct": false,
+      "detections": 23,
+      "votes": {
+        "wild_boar": 4,
+        "goat": 4,
+        "elk": 8,
+        "horse": 5,
+        "moose": 2
+      }
+    },
+    {
+      "species": "opossum",
+      "clip": "opossum_kFKacnjHI20.mp4",
+      "ground_truth": "opossum",
+      "predicted": "coyote",
+      "correct": false,
+      "detections": 304,
+      "votes": {
+        "wild_boar": 73,
+        "coyote": 127,
+        "skunk": 69,
+        "goat": 24,
+        "opossum": 11
+      }
+    },
+    {
+      "species": "raccoon",
+      "clip": "raccoon_p1JwzRGibpQ.mp4",
+      "ground_truth": "raccoon",
+      "predicted": "raccoon",
+      "correct": true,
+      "detections": 129,
+      "votes": {
+        "opossum": 1,
+        "raccoon": 128
+      }
+    },
+    {
+      "species": "skunk",
+      "clip": "skunk_E7lDHRy8XE0.mp4",
+      "ground_truth": "skunk",
+      "predicted": "coyote",
+      "correct": false,
+      "detections": 103,
+      "votes": {
+        "coyote": 26,
+        "horse": 1,
+        "fox": 15,
+        "goat": 8,
+        "deer": 19,
+        "bear": 5,
+        "raccoon": 1,
+        "wild_boar": 18,
+        "moose": 10
+      }
+    },
+    {
+      "species": "wild_boar",
+      "clip": "wild_boar_seen_wild.mp4",
+      "ground_truth": "wild_boar",
+      "predicted": "deer",
+      "correct": false,
+      "detections": 11,
+      "votes": {
+        "deer": 9,
+        "raccoon": 1,
+        "wild_boar": 1
+      }
+    }
+  ]
+}

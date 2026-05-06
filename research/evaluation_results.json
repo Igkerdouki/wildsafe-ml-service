@@ -1,0 +1,227 @@
+{
+  "model": "/Users/ioannagkerdouki/wildsafe-ml-service/models/wildlife_detector_best.pt",
+  "image_evaluation": {
+    "total_images": 160,
+    "total_gt_boxes": 211,
+    "total_predictions": 175,
+    "correct_species": 83,
+    "per_species": {
+      "bear": {
+        "gt": 15,
+        "pred": 31,
+        "correct": 7
+      },
+      "coyote": {
+        "gt": 20,
+        "pred": 13,
+        "correct": 0
+      },
+      "deer": {
+        "gt": 20,
+        "pred": 15,
+        "correct": 2
+      },
+      "elk": {
+        "gt": 19,
+        "pred": 12,
+        "correct": 17
+      },
+      "fox": {
+        "gt": 15,
+        "pred": 32,
+        "correct": 4
+      },
+      "goat": {
+        "gt": 26,
+        "pred": 0,
+        "correct": 0
+      },
+      "horse": {
+        "gt": 25,
+        "pred": 26,
+        "correct": 23
+      },
+      "moose": {
+        "gt": 17,
+        "pred": 8,
+        "correct": 2
+      },
+      "opossum": {
+        "gt": 15,
+        "pred": 16,
+        "correct": 18
+      },
+      "raccoon": {
+        "gt": 13,
+        "pred": 8,
+        "correct": 0
+      },
+      "skunk": {
+        "gt": 2,
+        "pred": 0,
+        "correct": 0
+      },
+      "wild_boar": {
+        "gt": 24,
+        "pred": 14,
+        "correct": 10
+      }
+    }
+  },
+  "clip_evaluation": {
+    "total_clips": 12,
+    "clips_correct": 7,
+    "per_species": {
+      "bear": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 38
+      },
+      "coyote": {
+        "clips": 1,
+        "correct": 0,
+        "detections": 7
+      },
+      "deer": {
+        "clips": 1,
+        "correct": 0,
+        "detections": 10
+      },
+      "elk": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 70
+      },
+      "fox": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 41
+      },
+      "goat": {
+        "clips": 1,
+        "correct": 0,
+        "detections": 179
+      },
+      "horse": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 107
+      },
+      "moose": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 43
+      },
+      "opossum": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 60
+      },
+      "raccoon": {
+        "clips": 1,
+        "correct": 0,
+        "detections": 4
+      },
+      "skunk": {
+        "clips": 1,
+        "correct": 0,
+        "detections": 0
+      },
+      "wild_boar": {
+        "clips": 1,
+        "correct": 1,
+        "detections": 12
+      }
+    },
+    "clip_details": [
+      {
+        "species": "bear",
+        "clip": "bear_walking_beach.mp4",
+        "predicted": "bear",
+        "correct": true,
+        "detections": 38
+      },
+      {
+        "species": "coyote",
+        "clip": "coyote_yawning.mp4",
+        "predicted": "deer",
+        "correct": false,
+        "detections": 7
+      },
+      {
+        "species": "deer",
+        "clip": "deer_walking_through_grass.mp4",
+        "predicted": "coyote",
+        "correct": false,
+        "detections": 10
+      },
+      {
+        "species": "elk",
+        "clip": "elk_walking_field_2.mp4",
+        "predicted": "elk",
+        "correct": true,
+        "detections": 70
+      },
+      {
+        "species": "fox",
+        "clip": "fox_sitting_on_road.mp4",
+        "predicted": "fox",
+        "correct": true,
+        "detections": 41
+      },
+      {
+        "species": "goat",
+        "clip": "goat_licking_arm.mp4",
+        "predicted": "fox",
+        "correct": false,
+        "detections": 179
+      },
+      {
+        "species": "horse",
+        "clip": "horse_horses_walking.mp4",
+        "predicted": "horse",
+        "correct": true,
+        "detections": 107
+      },
+      {
+        "species": "moose",
+        "clip": "moose_walking_field_2.mp4",
+        "predicted": "moose",
+        "correct": true,
+        "detections": 43
+      },
+      {
+        "species": "opossum",
+        "clip": "opossum_eating_from_person.mp4",
+        "predicted": "opossum",
+        "correct": true,
+        "detections": 60
+      },
+      {
+        "species": "raccoon",
+        "clip": "raccoon_moving_eating_food.mp4",
+        "predicted": "bear",
+        "correct": false,
+        "detections": 4
+      },
+      {
+        "species": "skunk",
+        "clip": "skunk_looking_around.mp4",
+        "predicted": "none",
+        "correct": false,
+        "detections": 0
+      },
+      {
+        "species": "wild_boar",
+        "clip": "wild_boar_eating_wild.mp4",
+        "predicted": "wild_boar",
+        "correct": true,
+        "detections": 12
+      }
+    ]
+  },
+  "summary": {
+    "test_clips": 12,
+    "clip_accuracy": 58.3
+  }
+}

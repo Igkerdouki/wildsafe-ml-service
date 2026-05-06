@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+.env
+
+# Model weights (use Git LFS or external storage)
+*.pt
+*.pth
+*.onnx
+*.task
+models/
+
+# Data (too large for git)
+data/
+research/datasets/
+research/video_crops*/
+research/repos/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+runs/
+research/crops/
+research/training_data/
