@@ -1,18 +1,27 @@
 # WildSafe ML Service
 
-Real-time wildlife and person detection for road safety applications.
+Real-time wildlife detection and human safety monitoring.
 
 ## Overview
 
-WildSafe is an ML-powered detection service that identifies wildlife and people in video streams. Designed for vehicle-mounted cameras to alert drivers of animals on or near roads.
+WildSafe is an ML-powered detection service with two core capabilities:
 
-## Target Species
+1. **Wildlife Detection** - Identifies animals in video streams for vehicle-mounted cameras to alert drivers of wildlife on or near roads
 
+2. **Human Safety Monitoring** - Detects anomalies and distress situations involving people (e.g., fallen individuals, unconscious persons, people in distress outside stores) using pose estimation
+
+## Detection Targets
+
+**Wildlife (12 species):**
 - Deer, Elk, Moose
 - Bear, Coyote, Fox
 - Raccoon, Opossum, Skunk
 - Goat, Horse, Wild Boar
-- Person
+
+**Human Behavior States:**
+- Normal (standing, walking)
+- Fallen (lying on ground)
+- Distress (hunched, slumped)
 
 ## Quick Start
 
@@ -62,9 +71,8 @@ wildsafe-ml-service/
 
 ## Current Models
 
-- **Detection:** MegaDetector V6 (animal detection)
-- **Classification:** ResNet50 species classifier (training)
-- **Fallback:** YOLO-World (open vocabulary)
+- **Classification:** CLIP ViT-L/14 zero-shot (wildlife + person detection)
+- **Pose Estimation:** MediaPipe PoseLandmarker (human behavior analysis)
 
 ## Planned Features
 
@@ -75,12 +83,13 @@ wildsafe-ml-service/
 - Predictive collision risk zones
 - Night-time optimization
 - Incident recording
-- Human detection safety mode
+- Real-time anomaly alerts for businesses/public spaces
 
 ## Tech Stack
 
-Python, FastAPI, PyTorch, YOLO, MegaDetector
+Python, FastAPI, PyTorch, CLIP, MediaPipe
 
-## Goal
+## Goals
 
-Reduce wildlife-vehicle collisions through real-time intelligent roadside alerts.
+1. **Road Safety** - Reduce wildlife-vehicle collisions through real-time intelligent roadside alerts
+2. **Public Safety** - Monitor for human distress situations (fallen persons, medical emergencies) in retail, public spaces, and urban environments
