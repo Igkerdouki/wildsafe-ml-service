@@ -18,6 +18,26 @@ DETECTION_CLASSES = [
     "person_normal", "person_abnormal"
 ]
 
+# Speaker frequencies (Hz) for animal deterrence
+SPEAKER_FREQUENCIES = {
+    "bear": 2000,
+    "coyote": 15000,
+    "deer": 20000,
+    "elk": 20000,
+    "fox": 15000,
+    "goat": 10000,
+    "horse": 5000,
+    "moose": 2000,
+    "opossum": 20000,
+    "raccoon": 20000,
+    "skunk": 15000,
+    "wild_boar": 3000,
+    "person_normal": 0,        # No alert
+    "person_abnormal": 1500,   # Human-audible alert
+    "person_fallen": 1500,
+    "person_distress": 1500,
+}
+
 # For backwards compatibility
 WILDLIFE_CLASSES = DETECTION_CLASSES
 
@@ -200,9 +220,15 @@ def predict_frame(
 
     inference_time = (time.perf_counter() - start_time) * 1000
 
+    # Get speaker frequency for detected species
+    frequency = SPEAKER_FREQUENCIES.get(top_species, 0)
+    should_alert = frequency > 0 and top_confidence > 0.7
+
     result = {
         "predicted_species": top_species,
         "confidence": round(top_confidence, 4),
+        "alert": should_alert,
+        "speaker_frequency_hz": frequency,
         "all_predictions": predictions[:5],  # Top 5
         "frame_width": width,
         "frame_height": height,
