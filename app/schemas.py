@@ -24,6 +24,8 @@ class PoseAnalysis(BaseModel):
 class PredictionResponse(BaseModel):
     predicted_species: str = Field(description="Top predicted species")
     confidence: float = Field(description="Confidence score for top prediction")
+    alert: bool = Field(default=False, description="Whether to trigger alert")
+    speaker_frequency_hz: int = Field(default=0, description="Speaker frequency for deterrence")
     all_predictions: list[SpeciesPrediction] = Field(
         default_factory=list,
         description="Top 5 species predictions with confidence scores"
