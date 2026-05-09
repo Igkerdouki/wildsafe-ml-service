@@ -27,13 +27,13 @@ WildSafe is an ML-powered detection service with two core capabilities:
 
 ```bash
 # Activate virtual environment
-source venv/bin/activate
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run the API server
-uvicorn app.main:app --reload
+fastapi dev app/main.py
 
 # Test health endpoint
 curl http://localhost:8000/health
@@ -49,6 +49,40 @@ curl http://localhost:8000/health
 | `/predict/base64` | POST | Detect in base64 image |
 | `/predict/url` | POST | Detect in image from URL |
 | `/predict/video` | POST | Detect in uploaded video |
+| `/predict/webrtc/offer` | POST | Start live detection from a WebRTC H.264 video stream |
+| `/predict/webrtc/{stream_id}` | GET | Get latest prediction for a live WebRTC stream |
+
+## WebRTC Streaming
+
+For a Raspberry Pi camera stream, send an SDP offer to:
+
+```bash
+POST /predict/webrtc/offer
+```
+
+Request body:
+
+```json
+{
+  "sdp": "v=0...",
+  "type": "offer",
+  "sample_fps": 3.0,
+  "confidence_threshold": 0.1
+}
+```
+
+The response contains a WebRTC SDP answer and a `stream_id`. Set the answer as
+the Pi client's remote description, then poll:
+
+```bash
+GET /predict/webrtc/{stream_id}
+```
+
+Close a stream with:
+
+```bash
+DELETE /predict/webrtc/{stream_id}
+```
 
 ## Project Structure
 

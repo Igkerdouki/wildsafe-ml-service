@@ -1,21 +1,32 @@
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
-from collections import defaultdict
 
-import numpy as np
 import cv2
+import numpy as np
 import torch
 from PIL import Image
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPModel, CLIPProcessor
 
 # Detection classes - wildlife + person behaviors
 DETECTION_CLASSES = [
     # Wildlife
-    "bear", "coyote", "deer", "elk", "fox", "goat",
-    "horse", "moose", "opossum", "raccoon", "skunk", "wild_boar",
+    "bear",
+    "coyote",
+    "deer",
+    "elk",
+    "fox",
+    "goat",
+    "horse",
+    "moose",
+    "opossum",
+    "raccoon",
+    "skunk",
+    "wild_boar",
     # Person states
-    "person_normal", "person_abnormal"
+    "person_normal",
+    "person_abnormal",
 ]
 
 # Speaker frequencies (Hz) for animal deterrence
@@ -32,10 +43,10 @@ SPEAKER_FREQUENCIES = {
     "raccoon": 20000,
     "skunk": 15000,
     "wild_boar": 3000,
-    "person_normal": 0,        # No alert
-    "person_abnormal": 1500,   # Human-audible alert
-    "person_fallen": 1500,
-    "person_distress": 1500,
+    "person_normal": 0,  # No alert
+    "person_abnormal": 0,  # Human-audible alert
+    "person_fallen": 0,
+    "person_distress": 0,
 }
 
 # For backwards compatibility
@@ -44,24 +55,59 @@ WILDLIFE_CLASSES = DETECTION_CLASSES
 # Enhanced text prompts for better zero-shot performance
 TEXT_PROMPTS = {
     # Wildlife prompts
-    "bear": ["a photo of a bear", "a black bear in nature", "a grizzly bear", "a bear walking"],
-    "coyote": ["a photo of a coyote", "a coyote in the wild", "a wild coyote", "a coyote with pointed ears"],
-    "deer": ["a photo of a deer", "a white-tailed deer", "a deer in nature", "a buck deer"],
-    "elk": ["a photo of an elk", "an elk with antlers", "a bull elk", "an elk in a field"],
+    "bear": [
+        "a photo of a bear",
+        "a black bear in nature",
+        "a grizzly bear",
+        "a bear walking",
+    ],
+    "coyote": [
+        "a photo of a coyote",
+        "a coyote in the wild",
+        "a wild coyote",
+        "a coyote with pointed ears",
+    ],
+    "deer": [
+        "a photo of a deer",
+        "a white-tailed deer",
+        "a deer in nature",
+        "a buck deer",
+    ],
+    "elk": [
+        "a photo of an elk",
+        "an elk with antlers",
+        "a bull elk",
+        "an elk in a field",
+    ],
     "fox": ["a photo of a fox", "a red fox", "a fox in nature", "a wild fox"],
     "goat": ["a photo of a goat", "a mountain goat", "a wild goat", "a goat on rocks"],
-    "horse": ["a photo of a horse", "a wild horse", "a mustang horse", "horses in a field"],
-    "moose": ["a photo of a moose", "a bull moose with large antlers", "a moose with palmate antlers", "a dark brown moose"],
+    "horse": [
+        "a photo of a horse",
+        "a wild horse",
+        "a mustang horse",
+        "horses in a field",
+    ],
+    "moose": [
+        "a photo of a moose",
+        "a bull moose with large antlers",
+        "a moose with palmate antlers",
+        "a dark brown moose",
+    ],
     "opossum": ["a photo of an opossum", "a virginia opossum", "an opossum at night"],
     "raccoon": ["a photo of a raccoon", "a raccoon with bandit mask", "a wild raccoon"],
     "skunk": ["a photo of a skunk", "a striped skunk", "a skunk with stripe"],
-    "wild_boar": ["a photo of a wild boar", "a wild pig", "a feral hog", "a boar in forest"],
+    "wild_boar": [
+        "a photo of a wild boar",
+        "a wild pig",
+        "a feral hog",
+        "a boar in forest",
+    ],
     # Person state prompts - binary classification
     "person_normal": [
         "a person standing upright",
         "a person walking normally",
         "a healthy person with good posture",
-        "a person going about their day"
+        "a person going about their day",
     ],
     "person_abnormal": [
         "a body lying motionless on the ground",
@@ -69,8 +115,10 @@ TEXT_PROMPTS = {
         "a drunk person staggering and stumbling",
         "a homeless person passed out on the street",
         "a person slumped over not moving",
-        "someone who has fallen and cannot get up"
-    ]
+        "someone who has fallen and cannot get up",
+        "A physical fight between people",
+        "An armed, dangerous person",
+    ],
 }
 
 # Global model instances (singleton)
@@ -79,6 +127,15 @@ _clip_processor: Optional[CLIPProcessor] = None
 _text_embeddings: Optional[torch.Tensor] = None
 _device: str = "cpu"
 _model_loaded: bool = False
+
+
+def _as_feature_tensor(model_output):
+    """Return projected CLIP features across Transformers return shapes."""
+    if isinstance(model_output, torch.Tensor):
+        return model_output
+    if hasattr(model_output, "pooler_output"):
+        return model_output.pooler_output
+    return model_output[0]
 
 
 def get_device() -> str:
@@ -115,13 +172,11 @@ def load_model():
             text_outputs = _clip_model.get_text_features(
                 input_ids=input_ids, attention_mask=attention_mask
             )
-            text_features = text_outputs.pooler_output
+            text_features = _as_feature_tensor(text_outputs)
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
             species_embeddings[species] = text_features.mean(dim=0)
 
-    _text_embeddings = torch.stack([
-        species_embeddings[s] for s in WILDLIFE_CLASSES
-    ])
+    _text_embeddings = torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
 
     _model_loaded = True
 
@@ -151,7 +206,7 @@ def classify_frame(image: np.ndarray) -> dict:
         pixel_values = inputs["pixel_values"].to(_device)
 
         image_outputs = _clip_model.get_image_features(pixel_values)
-        image_features = image_outputs.pooler_output
+        image_features = _as_feature_tensor(image_outputs)
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
 
         similarity = (image_features @ _text_embeddings.T).squeeze()
@@ -166,7 +221,7 @@ def classify_frame(image: np.ndarray) -> dict:
 def predict_frame(
     image: np.ndarray,
     confidence_threshold: float = 0.1,
-    use_pose_detection: bool = True
+    use_pose_detection: bool = True,
 ) -> dict:
     """
     Run species classification on a single image/frame.
@@ -179,8 +234,6 @@ def predict_frame(
     Returns:
         dict with predictions, dimensions, and timing
     """
-    from app.pose_detection import classify_person_state
-
     height, width = image.shape[:2]
 
     start_time = time.perf_counter()
@@ -202,6 +255,8 @@ def predict_frame(
     # Check if person detected - run pose estimation
     pose_result = None
     if use_pose_detection and "person" in top_species:
+        from app.pose_detection import classify_person_state
+
         pose_start = time.perf_counter()
         pose_result = classify_person_state(image)
         pose_time = (time.perf_counter() - pose_start) * 1000
@@ -232,7 +287,7 @@ def predict_frame(
         "all_predictions": predictions[:5],  # Top 5
         "frame_width": width,
         "frame_height": height,
-        "inference_time_ms": round(inference_time, 2)
+        "inference_time_ms": round(inference_time, 2),
     }
 
     # Add pose details if available
@@ -241,7 +296,7 @@ def predict_frame(
             "state": pose_result["state"],
             "pose_behavior": pose_result.get("pose_behavior"),
             "body_angle": pose_result.get("body_angle"),
-            "confidence": pose_result["confidence"]
+            "confidence": pose_result["confidence"],
         }
 
     return result
@@ -250,7 +305,7 @@ def predict_frame(
 def predict_video(
     video_path: str,
     confidence_threshold: float = 0.1,
-    sample_fps: Optional[float] = 3.0
+    sample_fps: Optional[float] = 3.0,
 ) -> dict:
     """
     Run species classification on a video file.
@@ -311,12 +366,14 @@ def predict_video(
             top_species = max(scores.keys(), key=lambda s: scores[s])
             top_conf = scores[top_species]
 
-            frames_results.append({
-                "frame_number": frame_count,
-                "timestamp_ms": round(timestamp_ms, 2),
-                "predicted_species": top_species,
-                "confidence": round(top_conf, 4)
-            })
+            frames_results.append(
+                {
+                    "frame_number": frame_count,
+                    "timestamp_ms": round(timestamp_ms, 2),
+                    "predicted_species": top_species,
+                    "confidence": round(top_conf, 4),
+                }
+            )
             processed_count += 1
 
         frame_count += 1
@@ -329,14 +386,21 @@ def predict_video(
     if species_scores:
         # Weight by average confidence * log of vote count
         weighted_scores = {
-            s: (species_scores[s] / max(1, species_counts[s])) * np.log1p(species_counts[s])
+            s: (species_scores[s] / max(1, species_counts[s]))
+            * np.log1p(species_counts[s])
             for s in species_scores
         }
-        predicted_species = max(weighted_scores.keys(), key=lambda s: weighted_scores[s])
-        avg_confidence = species_scores[predicted_species] / max(1, species_counts[predicted_species])
+        predicted_species = max(
+            weighted_scores.keys(), key=lambda s: weighted_scores[s]
+        )
+        avg_confidence = species_scores[predicted_species] / max(
+            1, species_counts[predicted_species]
+        )
 
         # Get top 3
-        sorted_species = sorted(weighted_scores.keys(), key=lambda s: weighted_scores[s], reverse=True)[:3]
+        sorted_species = sorted(
+            weighted_scores.keys(), key=lambda s: weighted_scores[s], reverse=True
+        )[:3]
     else:
         predicted_species = "unknown"
         avg_confidence = 0.0
@@ -351,7 +415,7 @@ def predict_video(
         "frames_processed": processed_count,
         "fps": round(video_fps, 2),
         "processing_fps": round(processing_fps, 2),
-        "frames": frames_results
+        "frames": frames_results,
     }
 
 
@@ -370,5 +434,5 @@ def get_model_info() -> dict:
         "person_classes": ["person_normal", "person_abnormal"],
         "loaded": is_model_loaded(),
         "device": _device if _model_loaded else "not loaded",
-        "accuracy": "100% (wildlife test set)"
+        "accuracy": "100% (wildlife test set)",
     }

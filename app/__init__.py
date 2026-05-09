@@ -1,0 +1,1 @@
+"""WildSafe FastAPI application package."""
