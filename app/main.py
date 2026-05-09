@@ -3,6 +3,7 @@ import asyncio
 import tempfile
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 import cv2
@@ -22,11 +23,23 @@ from app.schemas import (
     HealthResponse,
 )
 from app.inference import (
+    DETECTION_CLASSES,
     predict_frame,
     predict_video,
     load_model,
     get_model_info,
 )
+
+ORCHESTRATOR_ALERT_URL = "http://localhost:8090/alert"
+INCIDENT_CONFIDENCE_THRESHOLD = 0.7
+INCIDENT_COOLDOWN_SECONDS = 30.0
+ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
+PERSON_CLASSES = {
+    "person_normal",
+    "person_abnormal",
+    "person_fallen",
+    "person_distress",
+}
 
 app = FastAPI(
     title="WildSafe ML Service",
@@ -38,11 +51,20 @@ app = FastAPI(
 @dataclass
 class WebRTCStreamState:
     peer_connection: RTCPeerConnection
+    camera_id: str
+    latitude: float
+    longitude: float
+    road_name: Optional[str] = None
+    direction: Optional[str] = None
+    mile_marker: Optional[str] = None
     status: str = "connecting"
     frames_received: int = 0
     frames_processed: int = 0
     latest_prediction: Optional[dict] = None
     error: Optional[str] = None
+    last_incident_type: Optional[str] = None
+    last_incident_sent_at: float = 0.0
+    last_orchestrator_error: Optional[str] = None
 
 
 webrtc_streams: dict[str, WebRTCStreamState] = {}
@@ -61,6 +83,102 @@ def _prefer_h264(peer_connection: RTCPeerConnection):
     for transceiver in peer_connection.getTransceivers():
         if transceiver.kind == "video":
             transceiver.setCodecPreferences(preferred_codecs)
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _incident_type_for_prediction(predicted_label: str) -> Optional[str]:
+    if predicted_label in ANIMAL_CLASSES:
+        return "animal_on_road"
+    if predicted_label in PERSON_CLASSES:
+        return "person_on_road"
+    return None
+
+
+def _recommended_action(incident_type: str) -> dict:
+    if incident_type == "animal_on_road":
+        return {
+            "priority": "high",
+            "message": (
+                "Animal detected on or near roadway. Trigger roadside warning "
+                "and notify nearby drivers."
+            ),
+        }
+    if incident_type == "person_on_road":
+        return {
+            "priority": "critical",
+            "message": (
+                "Person detected on or near roadway. Trigger roadside warning "
+                "and notify operators for review."
+            ),
+        }
+    return {
+        "priority": "medium",
+        "message": "Roadway anomaly detected. Review camera stream.",
+    }
+
+
+def _build_incident_payload(
+    stream_id: str,
+    state: WebRTCStreamState,
+    prediction: dict,
+    incident_type: str,
+    occurred_at: str,
+) -> dict:
+    incident_id = f"inc_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    return {
+        "incident_id": incident_id,
+        "type": incident_type,
+        "occurred_at": occurred_at,
+        "reported_at": _utc_now_iso(),
+        "location": {
+            "latitude": state.latitude,
+            "longitude": state.longitude,
+            "road_name": state.road_name,
+            "direction": state.direction,
+            "mile_marker": state.mile_marker,
+            "camera_id": state.camera_id,
+        },
+        "recommended_action": _recommended_action(incident_type),
+        "evidence": {
+            "snapshot_url": None,
+            "video_clip_url": None,
+        },
+    }
+
+
+def _should_report_incident(
+    state: WebRTCStreamState,
+    incident_type: str,
+    confidence: float,
+    now: float,
+) -> bool:
+    if confidence < INCIDENT_CONFIDENCE_THRESHOLD:
+        return False
+    if state.last_incident_type != incident_type:
+        return True
+    return now - state.last_incident_sent_at >= INCIDENT_COOLDOWN_SECONDS
+
+
+async def _send_incident_to_orchestrator(
+    stream_id: str,
+    state: WebRTCStreamState,
+    prediction: dict,
+    incident_type: str,
+    occurred_at: str,
+):
+    payload = _build_incident_payload(
+        stream_id=stream_id,
+        state=state,
+        prediction=prediction,
+        incident_type=incident_type,
+        occurred_at=occurred_at,
+    )
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        response = await client.post(ORCHESTRATOR_ALERT_URL, json=payload)
+        response.raise_for_status()
 
 
 @app.on_event("startup")
@@ -199,6 +317,27 @@ async def _process_webrtc_video_track(
             state.latest_prediction = result
             state.frames_processed += 1
             state.status = "running"
+
+            predicted_label = result["predicted_species"]
+            incident_type = _incident_type_for_prediction(predicted_label)
+            if incident_type:
+                occurred_at = _utc_now_iso()
+                confidence = result["confidence"]
+                if _should_report_incident(state, incident_type, confidence, now):
+                    try:
+                        await _send_incident_to_orchestrator(
+                            stream_id,
+                            state,
+                            result,
+                            incident_type,
+                            occurred_at,
+                        )
+                        state.last_orchestrator_error = None
+                    except Exception as exc:
+                        state.last_orchestrator_error = str(exc)
+                    finally:
+                        state.last_incident_type = incident_type
+                        state.last_incident_sent_at = now
     except asyncio.CancelledError:
         raise
     except Exception as exc:
@@ -220,7 +359,15 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
 
     stream_id = str(uuid.uuid4())
     peer_connection = RTCPeerConnection()
-    state = WebRTCStreamState(peer_connection=peer_connection)
+    state = WebRTCStreamState(
+        peer_connection=peer_connection,
+        camera_id=request.camera_id,
+        latitude=request.latitude,
+        longitude=request.longitude,
+        road_name=request.road_name,
+        direction=request.direction,
+        mile_marker=request.mile_marker,
+    )
     webrtc_streams[stream_id] = state
 
     @peer_connection.on("track")

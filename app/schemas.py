@@ -63,6 +63,12 @@ class WebRTCOfferRequest(BaseModel):
     type: str = Field(default="offer", description="SDP message type")
     confidence_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
     sample_fps: float = Field(default=3.0, gt=0.0)
+    camera_id: str = Field(description="Roadside camera identifier")
+    latitude: float = Field(description="Roadside camera latitude")
+    longitude: float = Field(description="Roadside camera longitude")
+    road_name: Optional[str] = Field(default=None, description="Road name")
+    direction: Optional[str] = Field(default=None, description="Road direction")
+    mile_marker: Optional[str] = Field(default=None, description="Road mile marker")
     use_pose_detection: bool = Field(
         default=False,
         description="Enable MediaPipe pose analysis for person detections"

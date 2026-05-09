@@ -67,7 +67,13 @@ Request body:
   "sdp": "v=0...",
   "type": "offer",
   "sample_fps": 3.0,
-  "confidence_threshold": 0.1
+  "confidence_threshold": 0.1,
+  "camera_id": "rpi-roadside-001",
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "road_name": "CA-1",
+  "direction": "northbound",
+  "mile_marker": "12.4"
 }
 ```
 
@@ -83,6 +89,9 @@ Close a stream with:
 ```bash
 DELETE /predict/webrtc/{stream_id}
 ```
+
+When a processed WebRTC frame crosses the anomaly threshold, the ML service
+POSTs an incident payload to `http://localhost:8090/alert`.
 
 ## Project Structure
 
