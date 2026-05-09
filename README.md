@@ -39,6 +39,49 @@ fastapi dev app/main.py
 curl http://localhost:8000/health
 ```
 
+## Docker
+
+```bash
+docker build -t wildsafe-ml-service .
+docker run --rm -p 8000:8000 \
+  -e PORT=8000 \
+  -e ORCHESTRATOR_ALERT_URL=https://smart-wild.onrender.com/alert \
+  wildsafe-ml-service
+```
+
+The container starts Uvicorn on `0.0.0.0:$PORT`, which is required by Render
+web services. The CLIP model loads in the background by default. Set
+`PRELOAD_MODEL=false` to skip background loading and load on first inference.
+
+## Render
+
+This repo includes `render.yaml` for a Docker web service. Render will provide
+`PORT`; the Docker command uses it automatically.
+
+Recommended Render environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `ORCHESTRATOR_ALERT_URL` | Orchestrator `/alert` endpoint |
+| `PRELOAD_MODEL` | `true` to start loading CLIP after boot, `false` to lazy-load |
+| `WEBRTC_ICE_SERVERS` | Optional JSON array of STUN/TURN servers for WebRTC |
+
+Example `WEBRTC_ICE_SERVERS`:
+
+```json
+[
+  {
+    "urls": ["turns:turn.example.com:443"],
+    "username": "user",
+    "credential": "password"
+  }
+]
+```
+
+Render web services expose HTTP through Render's load balancer. WebRTC media
+usually needs UDP connectivity, so production WebRTC on Render should use a TURN
+relay configured through `WEBRTC_ICE_SERVERS`.
+
 ## API Endpoints
 
 | Endpoint | Method | Description |

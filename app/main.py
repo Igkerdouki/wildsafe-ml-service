@@ -1,5 +1,7 @@
 import base64
 import asyncio
+import json
+import os
 import tempfile
 import uuid
 from dataclasses import dataclass
@@ -10,7 +12,13 @@ import cv2
 import httpx
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from aiortc import RTCPeerConnection, RTCRtpReceiver, RTCSessionDescription
+from aiortc import (
+    RTCConfiguration,
+    RTCIceServer,
+    RTCPeerConnection,
+    RTCRtpReceiver,
+    RTCSessionDescription,
+)
 
 from app.schemas import (
     PredictionResponse,
@@ -30,7 +38,10 @@ from app.inference import (
     get_model_info,
 )
 
-ORCHESTRATOR_ALERT_URL = "http://localhost:8090/alert"
+ORCHESTRATOR_ALERT_URL = os.getenv(
+    "ORCHESTRATOR_ALERT_URL",
+    "https://smart-wild.onrender.com/alert",
+)
 INCIDENT_CONFIDENCE_THRESHOLD = 0.7
 INCIDENT_COOLDOWN_SECONDS = 30.0
 ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
@@ -40,6 +51,22 @@ PERSON_CLASSES = {
     "person_fallen",
     "person_distress",
 }
+
+
+def _load_ice_servers() -> list[RTCIceServer]:
+    raw_config = os.getenv("WEBRTC_ICE_SERVERS")
+    if not raw_config:
+        return []
+
+    servers = json.loads(raw_config)
+    return [
+        RTCIceServer(
+            urls=server["urls"],
+            username=server.get("username"),
+            credential=server.get("credential"),
+        )
+        for server in servers
+    ]
 
 app = FastAPI(
     title="WildSafe ML Service",
@@ -183,8 +210,9 @@ async def _send_incident_to_orchestrator(
 
 @app.on_event("startup")
 async def startup_event():
-    """Pre-load the CLIP model on startup."""
-    load_model()
+    """Start loading the CLIP model without blocking the web server port."""
+    if os.getenv("PRELOAD_MODEL", "true").lower() in {"1", "true", "yes"}:
+        asyncio.create_task(asyncio.to_thread(load_model))
 
 
 @app.on_event("shutdown")
@@ -358,7 +386,12 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
         raise HTTPException(400, "WebRTC request type must be 'offer'")
 
     stream_id = str(uuid.uuid4())
-    peer_connection = RTCPeerConnection()
+    ice_servers = _load_ice_servers()
+    peer_connection = RTCPeerConnection(
+        configuration=RTCConfiguration(iceServers=ice_servers)
+        if ice_servers
+        else None
+    )
     state = WebRTCStreamState(
         peer_connection=peer_connection,
         camera_id=request.camera_id,

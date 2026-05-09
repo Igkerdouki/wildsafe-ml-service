@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: wildsafe-ml-service
+    env: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PRELOAD_MODEL
+        value: "true"
+      - key: ORCHESTRATOR_ALERT_URL
+        value: https://smart-wild.onrender.com/alert

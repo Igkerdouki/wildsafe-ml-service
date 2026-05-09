@@ -1,4 +1,5 @@
 import time
+import threading
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
@@ -127,6 +128,7 @@ _clip_processor: Optional[CLIPProcessor] = None
 _text_embeddings: Optional[torch.Tensor] = None
 _device: str = "cpu"
 _model_loaded: bool = False
+_model_load_lock = threading.Lock()
 
 
 def _as_feature_tensor(model_output):
@@ -154,31 +156,35 @@ def load_model():
     if _model_loaded:
         return
 
-    _device = get_device()
+    with _model_load_lock:
+        if _model_loaded:
+            return
 
-    # Load CLIP ViT-L/14
-    _clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-    _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
-    _clip_model = _clip_model.to(_device)
-    _clip_model.eval()
+        _device = get_device()
 
-    # Precompute text embeddings for all species
-    species_embeddings = {}
-    with torch.no_grad():
-        for species, prompts in TEXT_PROMPTS.items():
-            inputs = _clip_processor(text=prompts, return_tensors="pt", padding=True)
-            input_ids = inputs["input_ids"].to(_device)
-            attention_mask = inputs["attention_mask"].to(_device)
-            text_outputs = _clip_model.get_text_features(
-                input_ids=input_ids, attention_mask=attention_mask
-            )
-            text_features = _as_feature_tensor(text_outputs)
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            species_embeddings[species] = text_features.mean(dim=0)
+        # Load CLIP ViT-L/14
+        _clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+        _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+        _clip_model = _clip_model.to(_device)
+        _clip_model.eval()
 
-    _text_embeddings = torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
+        # Precompute text embeddings for all species
+        species_embeddings = {}
+        with torch.no_grad():
+            for species, prompts in TEXT_PROMPTS.items():
+                inputs = _clip_processor(text=prompts, return_tensors="pt", padding=True)
+                input_ids = inputs["input_ids"].to(_device)
+                attention_mask = inputs["attention_mask"].to(_device)
+                text_outputs = _clip_model.get_text_features(
+                    input_ids=input_ids, attention_mask=attention_mask
+                )
+                text_features = _as_feature_tensor(text_outputs)
+                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+                species_embeddings[species] = text_features.mean(dim=0)
 
-    _model_loaded = True
+        _text_embeddings = torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
+
+        _model_loaded = True
 
 
 def classify_frame(image: np.ndarray) -> dict:
