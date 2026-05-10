@@ -2,13 +2,16 @@ import time
 import threading
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import cv2
 import numpy as np
-import torch
-from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
+
+# Lazy imports for heavy ML libraries to avoid slow startup
+if TYPE_CHECKING:
+    import torch
+    from PIL import Image
+    from transformers import CLIPModel, CLIPProcessor
 
 # Detection classes - wildlife + person behaviors
 DETECTION_CLASSES = [
@@ -123,17 +126,18 @@ TEXT_PROMPTS = {
 }
 
 # Global model instances (singleton)
-_clip_model: Optional[CLIPModel] = None
-_clip_processor: Optional[CLIPProcessor] = None
-_text_embeddings: Optional[torch.Tensor] = None
+_clip_model = None
+_clip_processor = None
+_text_embeddings = None
 _device: str = "cpu"
 _model_loaded: bool = False
 _model_load_lock = threading.Lock()
+_torch = None  # Lazy-loaded torch module
 
 
 def _as_feature_tensor(model_output):
     """Return projected CLIP features across Transformers return shapes."""
-    if isinstance(model_output, torch.Tensor):
+    if _torch is not None and isinstance(model_output, _torch.Tensor):
         return model_output
     if hasattr(model_output, "pooler_output"):
         return model_output.pooler_output
@@ -142,16 +146,20 @@ def _as_feature_tensor(model_output):
 
 def get_device() -> str:
     """Determine the best available device."""
-    if torch.cuda.is_available():
+    global _torch
+    if _torch is None:
+        import torch
+        _torch = torch
+    if _torch.cuda.is_available():
         return "cuda"
-    elif torch.backends.mps.is_available():
+    elif _torch.backends.mps.is_available():
         return "mps"
     return "cpu"
 
 
 def load_model():
     """Load the CLIP model and precompute text embeddings."""
-    global _clip_model, _clip_processor, _text_embeddings, _device, _model_loaded
+    global _clip_model, _clip_processor, _text_embeddings, _device, _model_loaded, _torch
 
     if _model_loaded:
         return
@@ -159,6 +167,11 @@ def load_model():
     with _model_load_lock:
         if _model_loaded:
             return
+
+        # Lazy import heavy dependencies
+        import torch
+        from transformers import CLIPModel, CLIPProcessor
+        _torch = torch
 
         _device = get_device()
 
@@ -170,7 +183,7 @@ def load_model():
 
         # Precompute text embeddings for all species
         species_embeddings = {}
-        with torch.no_grad():
+        with _torch.no_grad():
             for species, prompts in TEXT_PROMPTS.items():
                 inputs = _clip_processor(text=prompts, return_tensors="pt", padding=True)
                 input_ids = inputs["input_ids"].to(_device)
@@ -182,7 +195,7 @@ def load_model():
                 text_features = text_features / text_features.norm(dim=-1, keepdim=True)
                 species_embeddings[species] = text_features.mean(dim=0)
 
-        _text_embeddings = torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
+        _text_embeddings = _torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
 
         _model_loaded = True
 
@@ -198,6 +211,7 @@ def classify_frame(image: np.ndarray) -> dict:
         dict mapping species names to confidence scores
     """
     load_model()
+    from PIL import Image
 
     # Convert BGR to RGB if needed
     if len(image.shape) == 3 and image.shape[2] == 3:
@@ -207,7 +221,7 @@ def classify_frame(image: np.ndarray) -> dict:
 
     pil_img = Image.fromarray(image_rgb)
 
-    with torch.no_grad():
+    with _torch.no_grad():
         inputs = _clip_processor(images=pil_img, return_tensors="pt")
         pixel_values = inputs["pixel_values"].to(_device)
 
@@ -216,7 +230,7 @@ def classify_frame(image: np.ndarray) -> dict:
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
 
         similarity = (image_features @ _text_embeddings.T).squeeze()
-        probs = torch.softmax(similarity * 100, dim=0)
+        probs = _torch.softmax(similarity * 100, dim=0)
 
     return {
         WILDLIFE_CLASSES[i]: round(probs[i].item(), 4)

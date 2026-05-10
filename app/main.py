@@ -210,8 +210,8 @@ async def _send_incident_to_orchestrator(
 
 @app.on_event("startup")
 async def startup_event():
-    """Start loading the CLIP model without blocking the web server port."""
-    if os.getenv("PRELOAD_MODEL", "true").lower() in {"1", "true", "yes"}:
+    """Start loading the CLIP model in background (disabled by default for cloud deploy)."""
+    if os.getenv("PRELOAD_MODEL", "false").lower() in {"1", "true", "yes"}:
         asyncio.create_task(asyncio.to_thread(load_model))
 
 
