@@ -20,6 +20,7 @@ from aiortc import (
     RTCRtpReceiver,
     RTCSessionDescription,
 )
+from aiortc.rtcicetransport import parse_stun_turn_uri
 
 from app.schemas import (
     PredictionResponse,
@@ -60,15 +61,38 @@ ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
 
 
+def _normalize_ice_urls(server: dict) -> list[str]:
+    raw_urls = server.get("urls", server.get("url"))
+    if raw_urls is None:
+        raise ValueError("ICE server entry must include 'urls' or 'url'")
+
+    urls = raw_urls if isinstance(raw_urls, list) else [raw_urls]
+    normalized_urls = []
+    for url in urls:
+        if not isinstance(url, str):
+            raise ValueError("ICE server urls must be strings")
+
+        if url.startswith("stun:") and "?transport=" in url:
+            url = url.split("?transport=", 1)[0]
+
+        parse_stun_turn_uri(url)
+        normalized_urls.append(url)
+
+    return normalized_urls
+
+
 def _load_ice_servers() -> list[RTCIceServer]:
     raw_config = os.getenv("WEBRTC_ICE_SERVERS")
     if not raw_config:
         return []
 
     servers = json.loads(raw_config)
+    if not isinstance(servers, list):
+        raise ValueError("WEBRTC_ICE_SERVERS must be a JSON array")
+
     return [
         RTCIceServer(
-            urls=server["urls"],
+            urls=_normalize_ice_urls(server),
             username=server.get("username"),
             credential=server.get("credential"),
         )
@@ -460,7 +484,12 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
         raise HTTPException(400, "WebRTC request type must be 'offer'")
 
     stream_id = str(uuid.uuid4())
-    ice_servers = _load_ice_servers()
+    try:
+        ice_servers = _load_ice_servers()
+    except Exception as exc:
+        logger.warning("Invalid WEBRTC_ICE_SERVERS configuration: %s", exc)
+        raise HTTPException(500, f"Invalid WEBRTC_ICE_SERVERS configuration: {exc}")
+
     peer_connection = RTCPeerConnection(
         configuration=RTCConfiguration(iceServers=ice_servers)
         if ice_servers
