@@ -86,6 +86,9 @@ class WebRTCStreamStatus(BaseModel):
     status: str
     frames_received: int
     frames_processed: int
+    stream_frames_encoded: int = 0
+    latest_frame_at: Optional[str] = None
+    stream_url: Optional[str] = None
     latest_prediction: Optional[PredictionResponse] = None
     error: Optional[str] = None
 

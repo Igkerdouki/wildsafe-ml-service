@@ -98,6 +98,8 @@ relay configured through `WEBRTC_ICE_SERVERS`.
 | `/predict/video` | POST | Detect in uploaded video |
 | `/predict/webrtc/offer` | POST | Start live detection from a WebRTC H.264 video stream |
 | `/predict/webrtc/{stream_id}` | GET | Get latest prediction for a live WebRTC stream |
+| `/stream` | GET | View the active WebRTC camera feed as MJPEG |
+| `/stream/{stream_id}` | GET | View a specific WebRTC camera feed as MJPEG |
 
 ## WebRTC Streaming
 
@@ -130,6 +132,15 @@ the Pi client's remote description, then poll:
 ```bash
 GET /predict/webrtc/{stream_id}
 ```
+
+To view the received camera footage in a browser, open:
+
+```bash
+GET /stream/{stream_id}
+```
+
+If only one camera is connected, `/stream` also opens that feed. If multiple
+cameras are connected, `/stream` lists links for each active stream.
 
 Close a stream with:
 

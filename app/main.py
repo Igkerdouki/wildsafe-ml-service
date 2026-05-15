@@ -15,6 +15,7 @@ import cv2
 import httpx
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import HTMLResponse, StreamingResponse
 from aiortc import (
     RTCConfiguration,
     RTCIceServer,
@@ -48,6 +49,7 @@ ORCHESTRATOR_ALERT_URL = os.getenv(
 )
 INCIDENT_CONFIDENCE_THRESHOLD = 0.7
 INCIDENT_COOLDOWN_SECONDS = 30.0
+STREAM_FPS = float(os.getenv("STREAM_FPS", "10"))
 ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
 PERSON_CLASSES = {
     "person_normal",
@@ -270,6 +272,11 @@ class WebRTCStreamState:
     frames_received: int = 0
     frames_skipped: int = 0
     frames_processed: int = 0
+    stream_frames_encoded: int = 0
+    latest_frame_jpeg: Optional[bytes] = None
+    latest_frame_sequence: int = 0
+    latest_frame_at: Optional[str] = None
+    last_stream_frame_at: float = 0.0
     latest_prediction: Optional[dict] = None
     error: Optional[str] = None
     last_incident_type: Optional[str] = None
@@ -329,6 +336,17 @@ def _format_prediction_for_terminal(result: dict) -> str:
         return f"{ANSI_BLUE}PERSON{ANSI_RESET} {person_state} confidence={confidence:.4f}"
 
     return f"UNKNOWN {predicted_label} confidence={confidence:.4f}"
+
+
+def _store_stream_frame(state: WebRTCStreamState, image: np.ndarray):
+    ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    if not ok:
+        return
+
+    state.latest_frame_jpeg = encoded.tobytes()
+    state.latest_frame_sequence += 1
+    state.stream_frames_encoded += 1
+    state.latest_frame_at = _utc_now_iso()
 
 
 def _recommended_action(incident_type: str) -> dict:
@@ -567,6 +585,86 @@ async def predict_url(request: URLImageRequest):
     return PredictionResponse(**result)
 
 
+async def _mjpeg_stream_generator(stream_id: str):
+    last_sequence = 0
+    boundary = b"--frame\r\n"
+
+    while True:
+        state = webrtc_streams.get(stream_id)
+        if not state:
+            break
+
+        if state.latest_frame_jpeg and state.latest_frame_sequence != last_sequence:
+            last_sequence = state.latest_frame_sequence
+            frame = state.latest_frame_jpeg
+            yield (
+                boundary
+                + b"Content-Type: image/jpeg\r\n"
+                + f"X-Frame-Sequence: {last_sequence}\r\n".encode()
+                + f"X-Camera-Id: {state.camera_id}\r\n".encode()
+                + b"\r\n"
+                + frame
+                + b"\r\n"
+            )
+        else:
+            await asyncio.sleep(0.1)
+
+
+def _stream_response(stream_id: str) -> StreamingResponse:
+    if stream_id not in webrtc_streams:
+        raise HTTPException(404, "Unknown WebRTC stream")
+
+    return StreamingResponse(
+        _mjpeg_stream_generator(stream_id),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@app.get("/stream")
+def stream_latest():
+    """
+    View the latest active WebRTC camera feed as MJPEG.
+
+    If more than one camera is connected, returns a small HTML page with links
+    to `/stream/{stream_id}` for each active stream.
+    """
+    if not webrtc_streams:
+        raise HTTPException(404, "No active WebRTC streams")
+
+    if len(webrtc_streams) == 1:
+        stream_id = next(iter(webrtc_streams))
+        return _stream_response(stream_id)
+
+    links = "\n".join(
+        f'<li><a href="/stream/{stream_id}">{state.camera_id}</a> '
+        f"({state.status}, frames={state.frames_received})</li>"
+        for stream_id, state in webrtc_streams.items()
+    )
+    return HTMLResponse(
+        f"""
+        <!doctype html>
+        <html>
+          <head><title>WildSafe Camera Streams</title></head>
+          <body>
+            <h1>Active Camera Streams</h1>
+            <ul>{links}</ul>
+          </body>
+        </html>
+        """
+    )
+
+
+@app.get("/stream/{stream_id}")
+def stream_by_id(stream_id: str):
+    """View a specific active WebRTC camera feed as MJPEG."""
+    return _stream_response(stream_id)
+
+
 async def _process_webrtc_video_track(
     stream_id: str,
     track,
@@ -576,14 +674,16 @@ async def _process_webrtc_video_track(
 ):
     state = webrtc_streams[stream_id]
     min_interval = 1.0 / sample_fps
+    stream_min_interval = 1.0 / STREAM_FPS if STREAM_FPS > 0 else 0.0
     last_processed_at = 0.0
 
     logger.info(
-        "WebRTC frame loop started stream_id=%s camera_id=%s sample_fps=%.2f min_interval_s=%.3f confidence_threshold=%.2f use_pose_detection=%s",
+        "WebRTC frame loop started stream_id=%s camera_id=%s sample_fps=%.2f min_interval_s=%.3f stream_fps=%.2f confidence_threshold=%.2f use_pose_detection=%s",
         stream_id,
         state.camera_id,
         sample_fps,
         min_interval,
+        STREAM_FPS,
         confidence_threshold,
         use_pose_detection,
     )
@@ -617,29 +717,44 @@ async def _process_webrtc_video_track(
             state.frames_received += 1
 
             now = asyncio.get_running_loop().time()
-            if now - last_processed_at < min_interval:
+            should_process = now - last_processed_at >= min_interval
+            should_update_stream = (
+                stream_min_interval == 0.0
+                or now - state.last_stream_frame_at >= stream_min_interval
+            )
+
+            image = None
+            if should_process or should_update_stream:
+                image = frame.to_ndarray(format="bgr24")
+
+            if should_update_stream and image is not None:
+                _store_stream_frame(state, image)
+                state.last_stream_frame_at = now
+
+            if not should_process:
                 state.frames_skipped += 1
                 if state.frames_skipped == 1 or state.frames_skipped % 30 == 0:
                     logger.info(
-                        "WebRTC frame skipped stream_id=%s camera_id=%s received=%s skipped=%s processed=%s reason=sample_interval",
+                        "WebRTC frame skipped stream_id=%s camera_id=%s received=%s skipped=%s processed=%s stream_frames=%s reason=sample_interval",
                         stream_id,
                         state.camera_id,
                         state.frames_received,
                         state.frames_skipped,
                         state.frames_processed,
+                        state.stream_frames_encoded,
                     )
                 continue
 
             last_processed_at = now
             logger.info(
-                "WebRTC frame selected stream_id=%s camera_id=%s received=%s skipped=%s processed=%s",
+                "WebRTC frame selected stream_id=%s camera_id=%s received=%s skipped=%s processed=%s stream_frames=%s",
                 stream_id,
                 state.camera_id,
                 state.frames_received,
                 state.frames_skipped,
                 state.frames_processed,
+                state.stream_frames_encoded,
             )
-            image = frame.to_ndarray(format="bgr24")
             logger.info(
                 "WebRTC inference started stream_id=%s camera_id=%s frame=%s width=%s height=%s",
                 stream_id,
@@ -959,6 +1074,9 @@ def get_webrtc_prediction(stream_id: str):
         status=state.status,
         frames_received=state.frames_received,
         frames_processed=state.frames_processed,
+        stream_frames_encoded=state.stream_frames_encoded,
+        latest_frame_at=state.latest_frame_at,
+        stream_url=f"/stream/{stream_id}",
         latest_prediction=(
             PredictionResponse(**state.latest_prediction)
             if state.latest_prediction
