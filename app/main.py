@@ -4,10 +4,12 @@ import json
 import logging
 import os
 import tempfile
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import parse_qs, urlparse
 
 import cv2
 import httpx
@@ -59,6 +61,37 @@ logger.setLevel(logging.INFO)
 ANSI_GREEN = "\033[32m"
 ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
+
+
+def _summarize_ice_url(url: str) -> str:
+    parsed = urlparse(url)
+    transport = parse_qs(parsed.query).get("transport", ["default"])[0]
+    host_port = parsed.netloc or parsed.path
+    return f"{parsed.scheme}:{host_port} transport={transport}"
+
+
+def _summarize_ice_servers(servers: list[RTCIceServer]) -> list[dict]:
+    summaries = []
+    for server in servers:
+        urls = server.urls if isinstance(server.urls, list) else [server.urls]
+        summaries.append(
+            {
+                "urls": [_summarize_ice_url(url) for url in urls],
+                "username": "set" if server.username else "unset",
+                "credential": "set" if server.credential else "unset",
+            }
+        )
+    return summaries
+
+
+def _summarize_sdp(sdp: str) -> dict:
+    lines = sdp.splitlines()
+    return {
+        "bytes": len(sdp),
+        "lines": len(lines),
+        "candidates": sum(1 for line in lines if line.startswith("a=candidate:")),
+        "media": [line for line in lines if line.startswith("m=")],
+    }
 
 
 def _normalize_ice_urls(server: dict) -> list[str]:
@@ -117,6 +150,7 @@ class WebRTCStreamState:
     mile_marker: Optional[str] = None
     status: str = "connecting"
     frames_received: int = 0
+    frames_skipped: int = 0
     frames_processed: int = 0
     latest_prediction: Optional[dict] = None
     error: Optional[str] = None
@@ -237,11 +271,29 @@ def _should_report_incident(
     confidence: float,
     now: float,
 ) -> bool:
+    should_report, _ = _incident_report_decision(
+        state,
+        incident_type,
+        confidence,
+        now,
+    )
+    return should_report
+
+
+def _incident_report_decision(
+    state: WebRTCStreamState,
+    incident_type: str,
+    confidence: float,
+    now: float,
+) -> tuple[bool, str]:
     if confidence < INCIDENT_CONFIDENCE_THRESHOLD:
-        return False
+        return False, "below_threshold"
     if state.last_incident_type != incident_type:
-        return True
-    return now - state.last_incident_sent_at >= INCIDENT_COOLDOWN_SECONDS
+        return True, "new_incident_type"
+    elapsed = now - state.last_incident_sent_at
+    if elapsed >= INCIDENT_COOLDOWN_SECONDS:
+        return True, "cooldown_elapsed"
+    return False, "cooldown_active"
 
 
 async def _send_incident_to_orchestrator(
@@ -259,25 +311,44 @@ async def _send_incident_to_orchestrator(
         occurred_at=occurred_at,
     )
     async with httpx.AsyncClient(timeout=5.0) as client:
+        start = time.perf_counter()
         response = await client.post(ORCHESTRATOR_ALERT_URL, json=payload)
         response.raise_for_status()
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            "Incident orchestrator response stream_id=%s camera_id=%s status=%s elapsed_ms=%.1f",
+            stream_id,
+            state.camera_id,
+            response.status_code,
+            elapsed_ms,
+        )
 
 
 @app.on_event("startup")
 async def startup_event():
     """Start loading the CLIP model in background (disabled by default for cloud deploy)."""
-    if os.getenv("PRELOAD_MODEL", "false").lower() in {"1", "true", "yes"}:
+    preload_model = os.getenv("PRELOAD_MODEL", "false").lower() in {"1", "true", "yes"}
+    logger.info(
+        "ML service startup preload_model=%s webrtc_ice_servers_present=%s orchestrator_alert_url=%s",
+        preload_model,
+        bool(os.getenv("WEBRTC_ICE_SERVERS")),
+        ORCHESTRATOR_ALERT_URL,
+    )
+    if preload_model:
+        logger.info("Scheduling background model preload")
         asyncio.create_task(asyncio.to_thread(load_model))
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Close active WebRTC peer connections on server shutdown."""
+    logger.info("ML service shutdown active_webrtc_streams=%s", len(webrtc_streams))
     await asyncio.gather(
         *(state.peer_connection.close() for state in webrtc_streams.values()),
         return_exceptions=True,
     )
     webrtc_streams.clear()
+    logger.info("ML service shutdown complete active_webrtc_streams=0")
 
 
 @app.get("/")
@@ -380,6 +451,15 @@ async def _process_webrtc_video_track(
     min_interval = 1.0 / sample_fps
     last_processed_at = 0.0
 
+    logger.info(
+        "WebRTC frame loop started stream_id=%s camera_id=%s sample_fps=%.2f min_interval_s=%.3f confidence_threshold=%.2f use_pose_detection=%s",
+        stream_id,
+        state.camera_id,
+        sample_fps,
+        min_interval,
+        confidence_threshold,
+        use_pose_detection,
+    )
     try:
         while True:
             frame = await track.recv()
@@ -387,29 +467,44 @@ async def _process_webrtc_video_track(
 
             now = asyncio.get_running_loop().time()
             if now - last_processed_at < min_interval:
+                state.frames_skipped += 1
+                if state.frames_skipped == 1 or state.frames_skipped % 30 == 0:
+                    logger.info(
+                        "WebRTC frame skipped stream_id=%s camera_id=%s received=%s skipped=%s processed=%s reason=sample_interval",
+                        stream_id,
+                        state.camera_id,
+                        state.frames_received,
+                        state.frames_skipped,
+                        state.frames_processed,
+                    )
                 continue
 
             last_processed_at = now
             logger.info(
-                "WebRTC frame received stream_id=%s camera_id=%s received=%s processed=%s",
+                "WebRTC frame selected stream_id=%s camera_id=%s received=%s skipped=%s processed=%s",
                 stream_id,
                 state.camera_id,
                 state.frames_received,
+                state.frames_skipped,
                 state.frames_processed,
             )
             image = frame.to_ndarray(format="bgr24")
             logger.info(
-                "WebRTC inference started stream_id=%s camera_id=%s frame=%s",
+                "WebRTC inference started stream_id=%s camera_id=%s frame=%s width=%s height=%s",
                 stream_id,
                 state.camera_id,
                 state.frames_processed + 1,
+                image.shape[1],
+                image.shape[0],
             )
+            inference_start = time.perf_counter()
             result = await asyncio.to_thread(
                 predict_frame,
                 image,
                 confidence_threshold,
                 use_pose_detection,
             )
+            elapsed_ms = (time.perf_counter() - inference_start) * 1000
             state.latest_prediction = result
             state.frames_processed += 1
             state.status = "running"
@@ -418,16 +513,36 @@ async def _process_webrtc_video_track(
             confidence = result["confidence"]
             incident_type = _incident_type_for_prediction(predicted_label)
             logger.info(
-                "WebRTC prediction stream_id=%s camera_id=%s frame=%s %s incident_type=%s",
+                "WebRTC prediction stream_id=%s camera_id=%s frame=%s %s incident_type=%s inference_elapsed_ms=%.1f reported_inference_ms=%s alert=%s speaker_frequency_hz=%s",
                 stream_id,
                 state.camera_id,
                 state.frames_processed,
                 _format_prediction_for_terminal(result),
                 incident_type or "none",
+                elapsed_ms,
+                result.get("inference_time_ms"),
+                result.get("alert"),
+                result.get("speaker_frequency_hz"),
             )
             if incident_type:
                 occurred_at = _utc_now_iso()
-                if _should_report_incident(state, incident_type, confidence, now):
+                should_report, reason = _incident_report_decision(
+                    state,
+                    incident_type,
+                    confidence,
+                    now,
+                )
+                logger.info(
+                    "Incident decision stream_id=%s camera_id=%s incident_type=%s confidence=%.4f threshold=%.4f should_report=%s reason=%s",
+                    stream_id,
+                    state.camera_id,
+                    incident_type,
+                    confidence,
+                    INCIDENT_CONFIDENCE_THRESHOLD,
+                    should_report,
+                    reason,
+                )
+                if should_report:
                     try:
                         await _send_incident_to_orchestrator(
                             stream_id,
@@ -459,16 +574,27 @@ async def _process_webrtc_video_track(
                         state.last_incident_sent_at = now
                 else:
                     logger.info(
-                        "Incident not posted stream_id=%s camera_id=%s incident_type=%s reason=threshold_or_cooldown",
+                        "Incident not posted stream_id=%s camera_id=%s incident_type=%s reason=%s",
                         stream_id,
                         state.camera_id,
                         incident_type,
+                        reason,
                     )
     except asyncio.CancelledError:
+        logger.info("WebRTC frame loop cancelled stream_id=%s camera_id=%s", stream_id, state.camera_id)
         raise
     except Exception as exc:
         state.status = "ended"
         state.error = str(exc)
+        logger.exception(
+            "WebRTC frame loop ended with error stream_id=%s camera_id=%s received=%s skipped=%s processed=%s error=%r",
+            stream_id,
+            state.camera_id,
+            state.frames_received,
+            state.frames_skipped,
+            state.frames_processed,
+            exc,
+        )
 
 
 @app.post("/predict/webrtc/offer", response_model=WebRTCOfferResponse)
@@ -506,24 +632,51 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
     )
     webrtc_streams[stream_id] = state
     logger.info(
-        "WebRTC offer accepted stream_id=%s camera_id=%s lat=%s lon=%s ice_servers=%s",
+        "WebRTC offer accepted stream_id=%s camera_id=%s lat=%s lon=%s road_name=%s direction=%s mile_marker=%s sample_fps=%.2f confidence_threshold=%.2f use_pose_detection=%s ice_servers=%s offer_summary=%s",
         stream_id,
         request.camera_id,
         request.latitude,
         request.longitude,
+        request.road_name,
+        request.direction,
+        request.mile_marker,
+        request.sample_fps,
+        request.confidence_threshold,
+        request.use_pose_detection,
         len(ice_servers),
+        _summarize_sdp(request.sdp),
+    )
+    logger.info(
+        "WebRTC ICE servers stream_id=%s camera_id=%s summary=%s",
+        stream_id,
+        request.camera_id,
+        _summarize_ice_servers(ice_servers),
     )
 
     @peer_connection.on("track")
     def on_track(track):
+        logger.info(
+            "WebRTC track received stream_id=%s camera_id=%s kind=%s id=%s",
+            stream_id,
+            state.camera_id,
+            track.kind,
+            getattr(track, "id", "unknown"),
+        )
         if track.kind != "video":
+            logger.info(
+                "WebRTC non-video track ignored stream_id=%s camera_id=%s kind=%s",
+                stream_id,
+                state.camera_id,
+                track.kind,
+            )
             return
 
         state.status = "receiving"
         logger.info(
-            "WebRTC video track received stream_id=%s camera_id=%s",
+            "WebRTC video track received stream_id=%s camera_id=%s track_id=%s",
             stream_id,
             state.camera_id,
+            getattr(track, "id", "unknown"),
         )
         asyncio.create_task(
             _process_webrtc_video_track(
@@ -545,17 +698,63 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
             peer_connection.connectionState,
         )
         if peer_connection.connectionState in {"failed", "closed", "disconnected"}:
+            logger.info(
+                "Closing WebRTC peer connection stream_id=%s camera_id=%s reason=connection_state_%s",
+                stream_id,
+                state.camera_id,
+                peer_connection.connectionState,
+            )
             await peer_connection.close()
+
+    @peer_connection.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        logger.info(
+            "WebRTC ICE connection state stream_id=%s camera_id=%s state=%s",
+            stream_id,
+            state.camera_id,
+            peer_connection.iceConnectionState,
+        )
+
+    @peer_connection.on("icegatheringstatechange")
+    async def on_icegatheringstatechange():
+        logger.info(
+            "WebRTC ICE gathering state stream_id=%s camera_id=%s state=%s",
+            stream_id,
+            state.camera_id,
+            peer_connection.iceGatheringState,
+        )
+
+    @peer_connection.on("signalingstatechange")
+    async def on_signalingstatechange():
+        logger.info(
+            "WebRTC signaling state stream_id=%s camera_id=%s state=%s",
+            stream_id,
+            state.camera_id,
+            peer_connection.signalingState,
+        )
 
     try:
         offer = RTCSessionDescription(sdp=request.sdp, type=request.type)
+        logger.info("Setting remote description stream_id=%s camera_id=%s", stream_id, state.camera_id)
         await peer_connection.setRemoteDescription(offer)
+        logger.info("Remote description set stream_id=%s camera_id=%s", stream_id, state.camera_id)
         _prefer_h264(peer_connection)
+        logger.info("Codec preferences applied stream_id=%s camera_id=%s preferred=h264", stream_id, state.camera_id)
         answer = await peer_connection.createAnswer()
+        logger.info("WebRTC answer created stream_id=%s camera_id=%s summary=%s", stream_id, state.camera_id, _summarize_sdp(answer.sdp))
         await peer_connection.setLocalDescription(answer)
+        logger.info(
+            "Local description set stream_id=%s camera_id=%s type=%s summary=%s",
+            stream_id,
+            state.camera_id,
+            peer_connection.localDescription.type,
+            _summarize_sdp(peer_connection.localDescription.sdp),
+        )
     except Exception as exc:
+        logger.exception("Could not create WebRTC answer stream_id=%s camera_id=%s error=%r", stream_id, state.camera_id, exc)
         await peer_connection.close()
         webrtc_streams.pop(stream_id, None)
+        logger.info("Removed WebRTC stream stream_id=%s reason=answer_error", stream_id)
         raise HTTPException(400, f"Could not create WebRTC answer: {exc}")
 
     return WebRTCOfferResponse(
@@ -593,7 +792,9 @@ async def close_webrtc_stream(stream_id: str):
     if not state:
         raise HTTPException(404, "Unknown WebRTC stream")
 
+    logger.info("Closing WebRTC stream by API stream_id=%s camera_id=%s", stream_id, state.camera_id)
     await state.peer_connection.close()
+    logger.info("Removed WebRTC stream stream_id=%s reason=delete_api", stream_id)
     return {"stream_id": stream_id, "status": "closed"}
 
 

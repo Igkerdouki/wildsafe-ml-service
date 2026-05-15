@@ -1,3 +1,4 @@
+import logging
 import time
 import threading
 from collections import defaultdict
@@ -6,6 +7,8 @@ from typing import Optional, TYPE_CHECKING
 
 import cv2
 import numpy as np
+
+logger = logging.getLogger("uvicorn.error")
 
 # Lazy imports for heavy ML libraries to avoid slow startup
 if TYPE_CHECKING:
@@ -162,29 +165,45 @@ def load_model():
     global _clip_model, _clip_processor, _text_embeddings, _device, _model_loaded, _torch
 
     if _model_loaded:
+        logger.info("CLIP model load skipped reason=already_loaded")
         return
 
     with _model_load_lock:
         if _model_loaded:
+            logger.info("CLIP model load skipped reason=already_loaded_after_lock")
             return
 
+        load_start = time.perf_counter()
+        model_name = "openai/clip-vit-large-patch14"
+        logger.info(
+            "CLIP model load started model=%s target_classes=%s",
+            model_name,
+            len(WILDLIFE_CLASSES),
+        )
         # Lazy import heavy dependencies
         import torch
         from transformers import CLIPModel, CLIPProcessor
         _torch = torch
 
         _device = get_device()
+        logger.info("CLIP model device selected device=%s", _device)
 
         # Load CLIP ViT-L/14
-        _clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-        _clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+        _clip_model = CLIPModel.from_pretrained(model_name)
+        _clip_processor = CLIPProcessor.from_pretrained(model_name)
         _clip_model = _clip_model.to(_device)
         _clip_model.eval()
+        logger.info("CLIP model weights loaded model=%s device=%s", model_name, _device)
 
         # Precompute text embeddings for all species
         species_embeddings = {}
         with _torch.no_grad():
             for species, prompts in TEXT_PROMPTS.items():
+                logger.info(
+                    "CLIP text embeddings started species=%s prompts=%s",
+                    species,
+                    len(prompts),
+                )
                 inputs = _clip_processor(text=prompts, return_tensors="pt", padding=True)
                 input_ids = inputs["input_ids"].to(_device)
                 attention_mask = inputs["attention_mask"].to(_device)
@@ -198,6 +217,15 @@ def load_model():
         _text_embeddings = _torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
 
         _model_loaded = True
+        elapsed_s = time.perf_counter() - load_start
+        logger.info(
+            "CLIP model load complete model=%s device=%s target_classes=%s text_embedding_rows=%s elapsed_s=%.2f",
+            model_name,
+            _device,
+            len(WILDLIFE_CLASSES),
+            len(species_embeddings),
+            elapsed_s,
+        )
 
 
 def classify_frame(image: np.ndarray) -> dict:
