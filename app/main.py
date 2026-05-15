@@ -94,6 +94,124 @@ def _summarize_sdp(sdp: str) -> dict:
     }
 
 
+def _summarize_stats_report(report) -> dict:
+    reports = list(report.values()) if hasattr(report, "values") else []
+    summary = {
+        "report_count": len(reports),
+        "types": {},
+        "candidate_pairs": [],
+        "local_candidates": [],
+        "remote_candidates": [],
+        "inbound_rtp": [],
+        "transport": [],
+    }
+    candidates_by_id = {}
+
+    for item in reports:
+        report_type = getattr(item, "type", "unknown")
+        summary["types"][report_type] = summary["types"].get(report_type, 0) + 1
+
+        if report_type in {"local-candidate", "remote-candidate"}:
+            candidate = {
+                "id": getattr(item, "id", None),
+                "address": getattr(item, "address", None)
+                or getattr(item, "ip", None),
+                "port": getattr(item, "port", None),
+                "protocol": getattr(item, "protocol", None),
+                "candidate_type": getattr(item, "candidateType", None),
+                "priority": getattr(item, "priority", None),
+                "url": (
+                    _summarize_ice_url(getattr(item, "url"))
+                    if getattr(item, "url", None)
+                    else None
+                ),
+            }
+            candidates_by_id[candidate["id"]] = candidate
+            if report_type == "local-candidate":
+                summary["local_candidates"].append(candidate)
+            else:
+                summary["remote_candidates"].append(candidate)
+
+    for item in reports:
+        report_type = getattr(item, "type", "unknown")
+        if report_type == "candidate-pair":
+            local_candidate_id = getattr(item, "localCandidateId", None)
+            remote_candidate_id = getattr(item, "remoteCandidateId", None)
+            summary["candidate_pairs"].append(
+                {
+                    "id": getattr(item, "id", None),
+                    "state": getattr(item, "state", None),
+                    "nominated": getattr(item, "nominated", None),
+                    "current_round_trip_time": getattr(
+                        item,
+                        "currentRoundTripTime",
+                        None,
+                    ),
+                    "bytes_sent": getattr(item, "bytesSent", None),
+                    "bytes_received": getattr(item, "bytesReceived", None),
+                    "requests_sent": getattr(item, "requestsSent", None),
+                    "responses_received": getattr(item, "responsesReceived", None),
+                    "local": candidates_by_id.get(local_candidate_id)
+                    or local_candidate_id,
+                    "remote": candidates_by_id.get(remote_candidate_id)
+                    or remote_candidate_id,
+                }
+            )
+        elif report_type == "inbound-rtp":
+            summary["inbound_rtp"].append(
+                {
+                    "kind": getattr(item, "kind", None),
+                    "packets_received": getattr(item, "packetsReceived", None),
+                    "packets_lost": getattr(item, "packetsLost", None),
+                    "jitter": getattr(item, "jitter", None),
+                    "bytes_received": getattr(item, "bytesReceived", None),
+                    "frames_decoded": getattr(item, "framesDecoded", None),
+                    "frames_dropped": getattr(item, "framesDropped", None),
+                }
+            )
+        elif report_type == "transport":
+            summary["transport"].append(
+                {
+                    "dtls_state": getattr(item, "dtlsState", None),
+                    "ice_role": getattr(item, "iceRole", None),
+                    "selected_candidate_pair_id": getattr(
+                        item,
+                        "selectedCandidatePairId",
+                        None,
+                    ),
+                }
+            )
+
+    return summary
+
+
+async def _log_webrtc_stats(
+    peer_connection: RTCPeerConnection,
+    stream_id: str,
+    camera_id: str,
+    reason: str,
+):
+    try:
+        report = await peer_connection.getStats()
+    except Exception as exc:
+        logger.warning(
+            "WebRTC stats unavailable stream_id=%s camera_id=%s reason=%s error=%r",
+            stream_id,
+            camera_id,
+            reason,
+            exc,
+        )
+        return
+
+    logger.info(
+        "WebRTC stats stream_id=%s camera_id=%s reason=%s summary=%s",
+        stream_id,
+        camera_id,
+        reason,
+        _summarize_stats_report(report),
+    )
+
+
 def _normalize_ice_urls(server: dict) -> list[str]:
     raw_urls = server.get("urls", server.get("url"))
     if raw_urls is None:
@@ -701,10 +819,18 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
     async def on_connectionstatechange():
         state.status = peer_connection.connectionState
         logger.info(
-            "WebRTC connection state stream_id=%s camera_id=%s state=%s",
+            "WebRTC connection state stream_id=%s camera_id=%s state=%s ice_state=%s signaling_state=%s",
             stream_id,
             state.camera_id,
             peer_connection.connectionState,
+            peer_connection.iceConnectionState,
+            peer_connection.signalingState,
+        )
+        await _log_webrtc_stats(
+            peer_connection,
+            stream_id,
+            state.camera_id,
+            f"connection_state_{peer_connection.connectionState}",
         )
         if peer_connection.connectionState in {"failed", "closed", "disconnected"}:
             logger.info(
@@ -718,20 +844,40 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
     @peer_connection.on("iceconnectionstatechange")
     async def on_iceconnectionstatechange():
         logger.info(
-            "WebRTC ICE connection state stream_id=%s camera_id=%s state=%s",
+            "WebRTC ICE connection state stream_id=%s camera_id=%s state=%s connection_state=%s signaling_state=%s",
             stream_id,
             state.camera_id,
             peer_connection.iceConnectionState,
+            peer_connection.connectionState,
+            peer_connection.signalingState,
+        )
+        await _log_webrtc_stats(
+            peer_connection,
+            stream_id,
+            state.camera_id,
+            f"ice_connection_state_{peer_connection.iceConnectionState}",
         )
 
     @peer_connection.on("icegatheringstatechange")
     async def on_icegatheringstatechange():
         logger.info(
-            "WebRTC ICE gathering state stream_id=%s camera_id=%s state=%s",
+            "WebRTC ICE gathering state stream_id=%s camera_id=%s state=%s local_description=%s",
             stream_id,
             state.camera_id,
             peer_connection.iceGatheringState,
+            (
+                _summarize_sdp(peer_connection.localDescription.sdp)
+                if peer_connection.localDescription
+                else None
+            ),
         )
+        if peer_connection.iceGatheringState == "complete":
+            await _log_webrtc_stats(
+                peer_connection,
+                stream_id,
+                state.camera_id,
+                "ice_gathering_complete",
+            )
 
     @peer_connection.on("signalingstatechange")
     async def on_signalingstatechange():
@@ -747,6 +893,7 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
         logger.info("Setting remote description stream_id=%s camera_id=%s", stream_id, state.camera_id)
         await peer_connection.setRemoteDescription(offer)
         logger.info("Remote description set stream_id=%s camera_id=%s", stream_id, state.camera_id)
+        await _log_webrtc_stats(peer_connection, stream_id, state.camera_id, "remote_description_set")
         _prefer_h264(peer_connection)
         logger.info("Codec preferences applied stream_id=%s camera_id=%s preferred=h264", stream_id, state.camera_id)
         answer = await peer_connection.createAnswer()
@@ -759,6 +906,7 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
             peer_connection.localDescription.type,
             _summarize_sdp(peer_connection.localDescription.sdp),
         )
+        await _log_webrtc_stats(peer_connection, stream_id, state.camera_id, "local_description_set")
     except Exception as exc:
         logger.exception("Could not create WebRTC answer stream_id=%s camera_id=%s error=%r", stream_id, state.camera_id, exc)
         await peer_connection.close()
