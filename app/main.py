@@ -249,6 +249,7 @@ def _build_incident_payload(
         "type": incident_type,
         "occurred_at": occurred_at,
         "reported_at": _utc_now_iso(),
+        "speaker_frequency_hz": prediction.get("speaker_frequency_hz", 0),
         "location": {
             "latitude": state.latitude,
             "longitude": state.longitude,
