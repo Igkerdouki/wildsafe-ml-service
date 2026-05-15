@@ -327,20 +327,25 @@ async def _send_incident_to_orchestrator(
 
 @app.on_event("startup")
 async def startup_event():
-    """Load CLIP at service startup when preload is enabled."""
-    preload_model = os.getenv("PRELOAD_MODEL", "true").lower() in {"1", "true", "yes"}
+    """Optionally load CLIP at service startup."""
+    preload_model = os.getenv("PRELOAD_MODEL", "false").lower()
     logger.info(
         "ML service startup preload_model=%s webrtc_ice_servers_present=%s orchestrator_alert_url=%s",
         preload_model,
         bool(os.getenv("WEBRTC_ICE_SERVERS")),
         ORCHESTRATOR_ALERT_URL,
     )
-    if preload_model:
+    if preload_model in {"blocking", "1", "true", "yes"}:
         logger.info("Blocking startup until CLIP model preload completes")
         start = time.perf_counter()
         await asyncio.to_thread(load_model)
         elapsed_s = time.perf_counter() - start
         logger.info("CLIP model preload completed during startup elapsed_s=%.2f", elapsed_s)
+    elif preload_model == "background":
+        logger.info("Scheduling background CLIP model preload")
+        asyncio.create_task(asyncio.to_thread(load_model))
+    else:
+        logger.info("CLIP model preload disabled; model will load on first inference")
 
 
 @app.on_event("shutdown")

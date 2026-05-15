@@ -6,6 +6,6 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PRELOAD_MODEL
-        value: "true"
+        value: "false"
       - key: ORCHESTRATOR_ALERT_URL
         value: https://smart-wild.onrender.com/alert

@@ -51,9 +51,10 @@ docker run --rm -p 8000:8000 \
 ```
 
 The container starts Uvicorn on `0.0.0.0:$PORT`, which is required by Render
-web services. The CLIP model loads during service startup by default, before
-the app begins serving inference requests. Set `PRELOAD_MODEL=false` to skip
-startup loading and load on first inference.
+web services. On 512 MB Render instances, leave `PRELOAD_MODEL=false`; loading
+CLIP during startup can exceed the memory limit. Use `PRELOAD_MODEL=blocking`
+only on an instance with enough memory to load the model before serving
+inference requests.
 
 ## Render
 
@@ -65,7 +66,7 @@ Recommended Render environment variables:
 | Variable | Description |
 |----------|-------------|
 | `ORCHESTRATOR_ALERT_URL` | Orchestrator `/alert` endpoint |
-| `PRELOAD_MODEL` | `true` to load CLIP during startup, `false` to lazy-load |
+| `PRELOAD_MODEL` | `false` to lazy-load, `background` to load after boot, `blocking` to load before serving on larger instances |
 | `WEBRTC_ICE_SERVERS` | Optional JSON array of STUN/TURN servers for WebRTC |
 
 Example `WEBRTC_ICE_SERVERS`:
