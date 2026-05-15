@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import threading
 from collections import defaultdict
@@ -9,6 +10,7 @@ import cv2
 import numpy as np
 
 logger = logging.getLogger("uvicorn.error")
+CLIP_MODEL_NAME = os.getenv("CLIP_MODEL_NAME", "openai/clip-vit-base-patch32")
 
 # Lazy imports for heavy ML libraries to avoid slow startup
 if TYPE_CHECKING:
@@ -174,7 +176,7 @@ def load_model():
             return
 
         load_start = time.perf_counter()
-        model_name = "openai/clip-vit-large-patch14"
+        model_name = CLIP_MODEL_NAME
         logger.info(
             "CLIP model load started model=%s target_classes=%s",
             model_name,
@@ -188,7 +190,7 @@ def load_model():
         _device = get_device()
         logger.info("CLIP model device selected device=%s", _device)
 
-        # Load CLIP ViT-L/14
+        # Load CLIP zero-shot model
         _clip_model = CLIPModel.from_pretrained(model_name)
         _clip_processor = CLIPProcessor.from_pretrained(model_name)
         _clip_model = _clip_model.to(_device)
@@ -475,7 +477,7 @@ def is_model_loaded() -> bool:
 def get_model_info() -> dict:
     """Get model information."""
     return {
-        "model_name": "clip-vit-large-patch14",
+        "model_name": CLIP_MODEL_NAME,
         "model_type": "zero-shot-classifier",
         "target_classes": DETECTION_CLASSES,
         "wildlife_classes": DETECTION_CLASSES[:12],
