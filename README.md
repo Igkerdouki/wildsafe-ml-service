@@ -51,10 +51,11 @@ docker run --rm -p 8000:8000 \
 ```
 
 The container starts Uvicorn on `0.0.0.0:$PORT`, which is required by Render
-web services. On 512 MB Render instances, leave `PRELOAD_MODEL=false`; loading
-CLIP during startup can exceed the memory limit. Use `PRELOAD_MODEL=blocking`
-only on an instance with enough memory to load the model before serving
-inference requests.
+web services. A 512 MB Render instance is not enough for local Torch + CLIP
+inference. The app detects that limit and keeps the service alive, but inference
+returns `503 local_ml_unavailable` until the service runs on a larger instance.
+Use `PRELOAD_MODEL=blocking` only on an instance with enough memory to load the
+model before serving inference requests.
 
 ## Render
 
@@ -68,6 +69,8 @@ Recommended Render environment variables:
 | `ORCHESTRATOR_ALERT_URL` | Orchestrator `/alert` endpoint |
 | `PRELOAD_MODEL` | `false` to lazy-load, `background` to load after boot, `blocking` to load before serving on larger instances |
 | `CLIP_MODEL_NAME` | Hugging Face CLIP model id; defaults to `openai/clip-vit-base-patch32` for lower memory usage |
+| `LOCAL_ML_ENABLED` | Set `false` to intentionally run only health/WebRTC/stream endpoints without local inference |
+| `LOCAL_CLIP_MIN_MEMORY_MB` | Minimum memory required before loading local CLIP; defaults to `1536` |
 | `WEBRTC_ICE_SERVERS` | Optional JSON array of STUN/TURN servers for WebRTC |
 
 Example `WEBRTC_ICE_SERVERS`:
@@ -98,8 +101,9 @@ relay configured through `WEBRTC_ICE_SERVERS`.
 | `/predict/video` | POST | Detect in uploaded video |
 | `/predict/webrtc/offer` | POST | Start live detection from a WebRTC H.264 video stream |
 | `/predict/webrtc/{stream_id}` | GET | Get latest prediction for a live WebRTC stream |
-| `/stream` | GET | View the active WebRTC camera feed as MJPEG |
-| `/stream/{stream_id}` | GET | View a specific WebRTC camera feed as MJPEG |
+| `/stream` | GET | View active WebRTC camera streams |
+| `/stream/{stream_id}` | GET | View a specific WebRTC camera feed page |
+| `/stream/{stream_id}/mjpeg` | GET | View a specific WebRTC camera feed as raw MJPEG |
 
 ## WebRTC Streaming
 
@@ -139,8 +143,9 @@ To view the received camera footage in a browser, open:
 GET /stream/{stream_id}
 ```
 
-If only one camera is connected, `/stream` also opens that feed. If multiple
-cameras are connected, `/stream` lists links for each active stream.
+If only one camera is connected, `/stream` opens that feed viewer. If multiple
+cameras are connected, `/stream` lists links for each active stream. The raw
+MJPEG feed is available at `/stream/{stream_id}/mjpeg`.
 
 Close a stream with:
 

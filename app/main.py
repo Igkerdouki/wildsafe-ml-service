@@ -1,5 +1,6 @@
 import base64
 import asyncio
+import html
 import json
 import logging
 import os
@@ -37,6 +38,7 @@ from app.schemas import (
 )
 from app.inference import (
     DETECTION_CLASSES,
+    LocalMLUnavailableError,
     predict_frame,
     predict_video,
     load_model,
@@ -50,6 +52,7 @@ ORCHESTRATOR_ALERT_URL = os.getenv(
 INCIDENT_CONFIDENCE_THRESHOLD = 0.7
 INCIDENT_COOLDOWN_SECONDS = 30.0
 STREAM_FPS = float(os.getenv("STREAM_FPS", "10"))
+STREAM_CLEANUP_TTL_SECONDS = float(os.getenv("STREAM_CLEANUP_TTL_SECONDS", "30"))
 ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
 PERSON_CLASSES = {
     "person_normal",
@@ -63,6 +66,16 @@ logger.setLevel(logging.INFO)
 ANSI_GREEN = "\033[32m"
 ANSI_BLUE = "\033[34m"
 ANSI_RESET = "\033[0m"
+
+
+def _ml_unavailable_http_error(exc: LocalMLUnavailableError) -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail={
+            "error": "local_ml_unavailable",
+            "message": str(exc),
+        },
+    )
 
 
 def _summarize_ice_url(url: str) -> str:
@@ -279,12 +292,52 @@ class WebRTCStreamState:
     last_stream_frame_at: float = 0.0
     latest_prediction: Optional[dict] = None
     error: Optional[str] = None
+    terminal_at: Optional[float] = None
+    cleanup_task: Optional[asyncio.Task] = None
     last_incident_type: Optional[str] = None
     last_incident_sent_at: float = 0.0
     last_orchestrator_error: Optional[str] = None
 
 
 webrtc_streams: dict[str, WebRTCStreamState] = {}
+TERMINAL_STREAM_STATUSES = {"closed", "failed", "disconnected", "ended"}
+
+
+def _is_active_stream(state: WebRTCStreamState) -> bool:
+    if state.status in TERMINAL_STREAM_STATUSES:
+        return False
+    return state.peer_connection.connectionState not in TERMINAL_STREAM_STATUSES
+
+
+async def _remove_stream_after_ttl(stream_id: str, expected_state: WebRTCStreamState):
+    await asyncio.sleep(STREAM_CLEANUP_TTL_SECONDS)
+    current_state = webrtc_streams.get(stream_id)
+    if current_state is expected_state and not _is_active_stream(current_state):
+        webrtc_streams.pop(stream_id, None)
+        logger.info(
+            "Removed stale WebRTC stream stream_id=%s camera_id=%s ttl_s=%.1f",
+            stream_id,
+            expected_state.camera_id,
+            STREAM_CLEANUP_TTL_SECONDS,
+        )
+
+
+def _mark_stream_terminal(stream_id: str, state: WebRTCStreamState, status: str, error: Optional[str] = None):
+    state.status = status
+    if error:
+        state.error = error
+    if state.terminal_at is None:
+        state.terminal_at = time.monotonic()
+    if state.cleanup_task is None or state.cleanup_task.done():
+        state.cleanup_task = asyncio.create_task(_remove_stream_after_ttl(stream_id, state))
+
+
+def _active_stream_items() -> list[tuple[str, WebRTCStreamState]]:
+    return [
+        (stream_id, state)
+        for stream_id, state in webrtc_streams.items()
+        if _is_active_stream(state)
+    ]
 
 
 def _prefer_h264(peer_connection: RTCPeerConnection):
@@ -347,6 +400,47 @@ def _store_stream_frame(state: WebRTCStreamState, image: np.ndarray):
     state.latest_frame_sequence += 1
     state.stream_frames_encoded += 1
     state.latest_frame_at = _utc_now_iso()
+
+
+def _encode_placeholder_frame(message: str, detail: str = "") -> bytes:
+    image = np.full((360, 640, 3), 245, dtype=np.uint8)
+    cv2.putText(
+        image,
+        message,
+        (32, 160),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.9,
+        (35, 35, 35),
+        2,
+        cv2.LINE_AA,
+    )
+    if detail:
+        cv2.putText(
+            image,
+            detail[:70],
+            (32, 205),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (90, 90, 90),
+            1,
+            cv2.LINE_AA,
+        )
+    ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    if not ok:
+        return b""
+    return encoded.tobytes()
+
+
+def _mjpeg_part(frame: bytes, sequence: int, camera_id: str) -> bytes:
+    return (
+        b"--frame\r\n"
+        + b"Content-Type: image/jpeg\r\n"
+        + f"X-Frame-Sequence: {sequence}\r\n".encode()
+        + f"X-Camera-Id: {camera_id}\r\n".encode()
+        + b"\r\n"
+        + frame
+        + b"\r\n"
+    )
 
 
 def _recommended_action(incident_type: str) -> dict:
@@ -461,6 +555,15 @@ async def _send_incident_to_orchestrator(
         )
 
 
+async def _preload_model_background():
+    try:
+        await asyncio.to_thread(load_model)
+    except LocalMLUnavailableError as exc:
+        logger.warning("Background CLIP model preload skipped reason=%s", exc)
+    except Exception as exc:
+        logger.exception("Background CLIP model preload failed error=%r", exc)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Optionally load CLIP at service startup."""
@@ -474,12 +577,15 @@ async def startup_event():
     if preload_model in {"blocking", "1", "true", "yes"}:
         logger.info("Blocking startup until CLIP model preload completes")
         start = time.perf_counter()
-        await asyncio.to_thread(load_model)
-        elapsed_s = time.perf_counter() - start
-        logger.info("CLIP model preload completed during startup elapsed_s=%.2f", elapsed_s)
+        try:
+            await asyncio.to_thread(load_model)
+            elapsed_s = time.perf_counter() - start
+            logger.info("CLIP model preload completed during startup elapsed_s=%.2f", elapsed_s)
+        except LocalMLUnavailableError as exc:
+            logger.warning("CLIP model preload skipped reason=%s", exc)
     elif preload_model == "background":
         logger.info("Scheduling background CLIP model preload")
-        asyncio.create_task(asyncio.to_thread(load_model))
+        asyncio.create_task(_preload_model_background())
     else:
         logger.info("CLIP model preload disabled; model will load on first inference")
 
@@ -512,7 +618,10 @@ def health():
         model_name=info["model_name"],
         model_type=info["model_type"],
         target_classes=info["target_classes"],
-        accuracy=info["accuracy"]
+        accuracy=info["accuracy"],
+        local_ml_enabled=info["local_ml_enabled"],
+        memory_limit_mb=info["memory_limit_mb"],
+        local_clip_min_memory_mb=info["local_clip_min_memory_mb"],
     )
 
 
@@ -537,7 +646,10 @@ async def predict_upload(
     if image is None:
         raise HTTPException(400, "Could not decode image")
 
-    result = predict_frame(image, confidence_threshold)
+    try:
+        result = predict_frame(image, confidence_threshold)
+    except LocalMLUnavailableError as exc:
+        raise _ml_unavailable_http_error(exc) from exc
     return PredictionResponse(**result)
 
 
@@ -557,7 +669,10 @@ async def predict_base64(request: Base64ImageRequest):
     if image is None:
         raise HTTPException(400, "Could not decode image")
 
-    result = predict_frame(image, request.confidence_threshold)
+    try:
+        result = predict_frame(image, request.confidence_threshold)
+    except LocalMLUnavailableError as exc:
+        raise _ml_unavailable_http_error(exc) from exc
     return PredictionResponse(**result)
 
 
@@ -581,13 +696,16 @@ async def predict_url(request: URLImageRequest):
     if image is None:
         raise HTTPException(400, "Could not decode image from URL")
 
-    result = predict_frame(image, request.confidence_threshold)
+    try:
+        result = predict_frame(image, request.confidence_threshold)
+    except LocalMLUnavailableError as exc:
+        raise _ml_unavailable_http_error(exc) from exc
     return PredictionResponse(**result)
 
 
 async def _mjpeg_stream_generator(stream_id: str):
     last_sequence = 0
-    boundary = b"--frame\r\n"
+    placeholder_sequence = -1
 
     while True:
         state = webrtc_streams.get(stream_id)
@@ -596,21 +714,43 @@ async def _mjpeg_stream_generator(stream_id: str):
 
         if state.latest_frame_jpeg and state.latest_frame_sequence != last_sequence:
             last_sequence = state.latest_frame_sequence
-            frame = state.latest_frame_jpeg
-            yield (
-                boundary
-                + b"Content-Type: image/jpeg\r\n"
-                + f"X-Frame-Sequence: {last_sequence}\r\n".encode()
-                + f"X-Camera-Id: {state.camera_id}\r\n".encode()
-                + b"\r\n"
-                + frame
-                + b"\r\n"
+            yield _mjpeg_part(state.latest_frame_jpeg, last_sequence, state.camera_id)
+        elif not state.latest_frame_jpeg:
+            placeholder_sequence -= 1
+            if _is_active_stream(state):
+                message = "Waiting for camera frames"
+                detail = f"{state.camera_id} status={state.status} received={state.frames_received}"
+                yield _mjpeg_part(
+                    _encode_placeholder_frame(message, detail),
+                    placeholder_sequence,
+                    state.camera_id,
+                )
+                await asyncio.sleep(1.0)
+            else:
+                message = "Stream ended"
+                detail = state.error or f"{state.camera_id} status={state.status}"
+                yield _mjpeg_part(
+                    _encode_placeholder_frame(message, detail),
+                    placeholder_sequence,
+                    state.camera_id,
+                )
+                break
+        elif not _is_active_stream(state):
+            placeholder_sequence -= 1
+            yield _mjpeg_part(
+                _encode_placeholder_frame(
+                    "Stream ended",
+                    state.error or f"{state.camera_id} status={state.status}",
+                ),
+                placeholder_sequence,
+                state.camera_id,
             )
+            break
         else:
             await asyncio.sleep(0.1)
 
 
-def _stream_response(stream_id: str) -> StreamingResponse:
+def _mjpeg_stream_response(stream_id: str) -> StreamingResponse:
     if stream_id not in webrtc_streams:
         raise HTTPException(404, "Unknown WebRTC stream")
 
@@ -625,25 +765,108 @@ def _stream_response(stream_id: str) -> StreamingResponse:
     )
 
 
+def _stream_viewer_html(stream_id: str, state: WebRTCStreamState) -> str:
+    escaped_stream_id = html.escape(stream_id)
+    escaped_camera_id = html.escape(state.camera_id)
+    escaped_status = html.escape(state.status)
+    escaped_latest_frame_at = html.escape(state.latest_frame_at or "waiting")
+    escaped_error = html.escape(state.error or "")
+    mjpeg_url = f"/stream/{stream_id}/mjpeg"
+    status_url_js = json.dumps(f"/predict/webrtc/{stream_id}")
+    return f"""
+    <!doctype html>
+    <html>
+      <head>
+        <title>WildSafe Stream {escaped_camera_id}</title>
+        <style>
+          body {{ margin: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111; }}
+          .layout {{ display: grid; grid-template-columns: minmax(320px, 1fr) 320px; gap: 20px; align-items: start; }}
+          img {{ width: 100%; max-height: 76vh; object-fit: contain; background: #eee; border: 1px solid #ccc; }}
+          dl {{ display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; }}
+          dt {{ font-weight: 700; }}
+          dd {{ margin: 0; overflow-wrap: anywhere; }}
+          .badge {{ display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef; }}
+          .error {{ color: #a40000; }}
+        </style>
+      </head>
+      <body>
+        <h1>Camera Stream</h1>
+        <div class="layout">
+          <div>
+            <img id="feed" src="{html.escape(mjpeg_url)}" alt="Camera feed for {escaped_camera_id}" />
+          </div>
+          <aside>
+            <h2>{escaped_camera_id}</h2>
+            <dl>
+              <dt>Stream</dt><dd>{escaped_stream_id}</dd>
+              <dt>Status</dt><dd><span class="badge" id="status">{escaped_status}</span></dd>
+              <dt>Received</dt><dd id="frames_received">{state.frames_received}</dd>
+              <dt>Skipped</dt><dd id="frames_skipped">{state.frames_skipped}</dd>
+              <dt>Encoded</dt><dd id="stream_frames_encoded">{state.stream_frames_encoded}</dd>
+              <dt>Processed</dt><dd id="frames_processed">{state.frames_processed}</dd>
+              <dt>Latest frame</dt><dd id="latest_frame_at">{escaped_latest_frame_at}</dd>
+              <dt>Error</dt><dd class="error" id="error">{escaped_error}</dd>
+            </dl>
+          </aside>
+        </div>
+        <script>
+          async function refreshStatus() {{
+            try {{
+              const response = await fetch({status_url_js}, {{ cache: 'no-store' }});
+              if (!response.ok) {{
+                document.getElementById('status').textContent = 'not_found';
+                document.getElementById('error').textContent = await response.text();
+                return;
+              }}
+              const data = await response.json();
+              for (const key of ['status', 'frames_received', 'frames_skipped', 'stream_frames_encoded', 'frames_processed', 'latest_frame_at', 'error']) {{
+                const el = document.getElementById(key);
+                if (el) el.textContent = data[key] ?? '';
+              }}
+            }} catch (error) {{
+              document.getElementById('error').textContent = String(error);
+            }}
+          }}
+          refreshStatus();
+          setInterval(refreshStatus, 1000);
+        </script>
+      </body>
+    </html>
+    """
+
+
 @app.get("/stream")
 def stream_latest():
     """
-    View the latest active WebRTC camera feed as MJPEG.
+    View active WebRTC camera streams.
 
     If more than one camera is connected, returns a small HTML page with links
     to `/stream/{stream_id}` for each active stream.
     """
-    if not webrtc_streams:
-        raise HTTPException(404, "No active WebRTC streams")
+    active_streams = _active_stream_items()
 
-    if len(webrtc_streams) == 1:
-        stream_id = next(iter(webrtc_streams))
-        return _stream_response(stream_id)
+    if len(active_streams) == 1:
+        stream_id, state = active_streams[0]
+        return HTMLResponse(_stream_viewer_html(stream_id, state))
+
+    if not active_streams:
+        return HTMLResponse(
+            """
+            <!doctype html>
+            <html>
+              <head><title>WildSafe Camera Streams</title></head>
+              <body>
+                <h1>Active Camera Streams</h1>
+                <p>No active camera streams.</p>
+              </body>
+            </html>
+            """
+        )
 
     links = "\n".join(
-        f'<li><a href="/stream/{stream_id}">{state.camera_id}</a> '
-        f"({state.status}, frames={state.frames_received})</li>"
-        for stream_id, state in webrtc_streams.items()
+        f'<li><a href="/stream/{html.escape(stream_id)}">{html.escape(state.camera_id)}</a> '
+        f"({html.escape(state.status)}, frames={state.frames_received}, encoded={state.stream_frames_encoded})</li>"
+        for stream_id, state in active_streams
     )
     return HTMLResponse(
         f"""
@@ -659,10 +882,19 @@ def stream_latest():
     )
 
 
+@app.get("/stream/{stream_id}/mjpeg")
+def stream_mjpeg_by_id(stream_id: str):
+    """View a specific active WebRTC camera feed as raw MJPEG."""
+    return _mjpeg_stream_response(stream_id)
+
+
 @app.get("/stream/{stream_id}")
 def stream_by_id(stream_id: str):
-    """View a specific active WebRTC camera feed as MJPEG."""
-    return _stream_response(stream_id)
+    """View a specific active WebRTC camera feed in a browser-friendly page."""
+    state = webrtc_streams.get(stream_id)
+    if not state:
+        raise HTTPException(404, "Unknown WebRTC stream")
+    return HTMLResponse(_stream_viewer_html(stream_id, state))
 
 
 async def _process_webrtc_video_track(
@@ -764,12 +996,23 @@ async def _process_webrtc_video_track(
                 image.shape[0],
             )
             inference_start = time.perf_counter()
-            result = await asyncio.to_thread(
-                predict_frame,
-                image,
-                confidence_threshold,
-                use_pose_detection,
-            )
+            try:
+                result = await asyncio.to_thread(
+                    predict_frame,
+                    image,
+                    confidence_threshold,
+                    use_pose_detection,
+                )
+            except LocalMLUnavailableError as exc:
+                state.error = str(exc)
+                logger.warning(
+                    "WebRTC inference skipped stream_id=%s camera_id=%s reason=%s",
+                    stream_id,
+                    state.camera_id,
+                    exc,
+                )
+                await asyncio.sleep(1.0)
+                continue
             elapsed_ms = (time.perf_counter() - inference_start) * 1000
             state.latest_prediction = result
             state.frames_processed += 1
@@ -852,8 +1095,7 @@ async def _process_webrtc_video_track(
             recv_task.cancel()
         raise
     except Exception as exc:
-        state.status = "ended"
-        state.error = str(exc)
+        _mark_stream_terminal(stream_id, state, "ended", str(exc))
         logger.exception(
             "WebRTC frame loop ended with error stream_id=%s camera_id=%s received=%s skipped=%s processed=%s error=%r",
             stream_id,
@@ -980,6 +1222,7 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
                 state.camera_id,
                 peer_connection.connectionState,
             )
+            _mark_stream_terminal(stream_id, state, peer_connection.connectionState)
             await peer_connection.close()
 
     @peer_connection.on("iceconnectionstatechange")
@@ -1073,10 +1316,12 @@ def get_webrtc_prediction(stream_id: str):
         stream_id=stream_id,
         status=state.status,
         frames_received=state.frames_received,
+        frames_skipped=state.frames_skipped,
         frames_processed=state.frames_processed,
         stream_frames_encoded=state.stream_frames_encoded,
         latest_frame_at=state.latest_frame_at,
         stream_url=f"/stream/{stream_id}",
+        mjpeg_url=f"/stream/{stream_id}/mjpeg",
         latest_prediction=(
             PredictionResponse(**state.latest_prediction)
             if state.latest_prediction
@@ -1125,7 +1370,10 @@ async def predict_video_upload(
         tmp_path = tmp.name
 
     try:
-        result = predict_video(tmp_path, confidence_threshold, sample_fps)
+        try:
+            result = predict_video(tmp_path, confidence_threshold, sample_fps)
+        except LocalMLUnavailableError as exc:
+            raise _ml_unavailable_http_error(exc) from exc
         return VideoPredictionResponse(**result)
     finally:
         import os

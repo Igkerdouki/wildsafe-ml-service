@@ -9,5 +9,7 @@ services:
         value: "false"
       - key: CLIP_MODEL_NAME
         value: openai/clip-vit-base-patch32
+      - key: LOCAL_CLIP_MIN_MEMORY_MB
+        value: "1536"
       - key: ORCHESTRATOR_ALERT_URL
         value: https://smart-wild.onrender.com/alert

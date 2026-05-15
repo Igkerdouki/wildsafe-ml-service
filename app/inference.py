@@ -11,6 +11,8 @@ import numpy as np
 
 logger = logging.getLogger("uvicorn.error")
 CLIP_MODEL_NAME = os.getenv("CLIP_MODEL_NAME", "openai/clip-vit-base-patch32")
+LOCAL_ML_ENABLED = os.getenv("LOCAL_ML_ENABLED", "true").lower() in {"1", "true", "yes"}
+LOCAL_CLIP_MIN_MEMORY_MB = int(os.getenv("LOCAL_CLIP_MIN_MEMORY_MB", "1536"))
 
 # Lazy imports for heavy ML libraries to avoid slow startup
 if TYPE_CHECKING:
@@ -140,6 +142,46 @@ _model_load_lock = threading.Lock()
 _torch = None  # Lazy-loaded torch module
 
 
+class LocalMLUnavailableError(RuntimeError):
+    """Raised when local model inference is disabled for this runtime."""
+
+
+def _memory_limit_mb() -> Optional[int]:
+    cgroup_paths = [
+        Path("/sys/fs/cgroup/memory.max"),
+        Path("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
+    ]
+    for path in cgroup_paths:
+        try:
+            raw_value = path.read_text().strip()
+        except OSError:
+            continue
+        if not raw_value or raw_value == "max":
+            continue
+        try:
+            limit_bytes = int(raw_value)
+        except ValueError:
+            continue
+        if limit_bytes <= 0:
+            continue
+        return limit_bytes // (1024 * 1024)
+    return None
+
+
+def _ensure_local_ml_available():
+    if not LOCAL_ML_ENABLED:
+        raise LocalMLUnavailableError("Local ML inference is disabled by LOCAL_ML_ENABLED=false")
+
+    memory_limit_mb = _memory_limit_mb()
+    if memory_limit_mb is not None and memory_limit_mb < LOCAL_CLIP_MIN_MEMORY_MB:
+        raise LocalMLUnavailableError(
+            "Local CLIP inference needs more memory than this instance allows "
+            f"(limit={memory_limit_mb}MB, required={LOCAL_CLIP_MIN_MEMORY_MB}MB). "
+            "Use a larger Render instance, or lower LOCAL_CLIP_MIN_MEMORY_MB only "
+            "if you accept OOM risk."
+        )
+
+
 def _as_feature_tensor(model_output):
     """Return projected CLIP features across Transformers return shapes."""
     if _torch is not None and isinstance(model_output, _torch.Tensor):
@@ -165,6 +207,8 @@ def get_device() -> str:
 def load_model():
     """Load the CLIP model and precompute text embeddings."""
     global _clip_model, _clip_processor, _text_embeddings, _device, _model_loaded, _torch
+
+    _ensure_local_ml_available()
 
     if _model_loaded:
         logger.info("CLIP model load skipped reason=already_loaded")
@@ -485,4 +529,7 @@ def get_model_info() -> dict:
         "loaded": is_model_loaded(),
         "device": _device if _model_loaded else "not loaded",
         "accuracy": "100% (wildlife test set)",
+        "local_ml_enabled": LOCAL_ML_ENABLED,
+        "memory_limit_mb": _memory_limit_mb(),
+        "local_clip_min_memory_mb": LOCAL_CLIP_MIN_MEMORY_MB,
     }

@@ -85,10 +85,12 @@ class WebRTCStreamStatus(BaseModel):
     stream_id: str
     status: str
     frames_received: int
+    frames_skipped: int = 0
     frames_processed: int
     stream_frames_encoded: int = 0
     latest_frame_at: Optional[str] = None
     stream_url: Optional[str] = None
+    mjpeg_url: Optional[str] = None
     latest_prediction: Optional[PredictionResponse] = None
     error: Optional[str] = None
 
@@ -110,3 +112,6 @@ class HealthResponse(BaseModel):
     model_type: str = Field(default="zero-shot-classifier")
     target_classes: list[str]
     accuracy: str = Field(default="100% (test set)")
+    local_ml_enabled: bool = True
+    memory_limit_mb: Optional[int] = None
+    local_clip_min_memory_mb: int = 1536
