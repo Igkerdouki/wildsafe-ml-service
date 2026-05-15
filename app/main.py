@@ -588,8 +588,32 @@ async def _process_webrtc_video_track(
         use_pose_detection,
     )
     try:
+        recv_task = asyncio.create_task(track.recv())
         while True:
-            frame = await track.recv()
+            done, _ = await asyncio.wait({recv_task}, timeout=5.0)
+            if not done:
+                logger.warning(
+                    "WebRTC waiting for first/next frame stream_id=%s camera_id=%s received=%s skipped=%s processed=%s track_ready_state=%s pc_state=%s ice_state=%s signaling_state=%s",
+                    stream_id,
+                    state.camera_id,
+                    state.frames_received,
+                    state.frames_skipped,
+                    state.frames_processed,
+                    getattr(track, "readyState", "unknown"),
+                    state.peer_connection.connectionState,
+                    state.peer_connection.iceConnectionState,
+                    state.peer_connection.signalingState,
+                )
+                await _log_webrtc_stats(
+                    state.peer_connection,
+                    stream_id,
+                    state.camera_id,
+                    "frame_recv_waiting",
+                )
+                continue
+
+            frame = recv_task.result()
+            recv_task = asyncio.create_task(track.recv())
             state.frames_received += 1
 
             now = asyncio.get_running_loop().time()
@@ -709,6 +733,8 @@ async def _process_webrtc_video_track(
                     )
     except asyncio.CancelledError:
         logger.info("WebRTC frame loop cancelled stream_id=%s camera_id=%s", stream_id, state.camera_id)
+        if "recv_task" in locals() and not recv_task.done():
+            recv_task.cancel()
         raise
     except Exception as exc:
         state.status = "ended"
