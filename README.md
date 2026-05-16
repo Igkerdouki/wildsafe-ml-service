@@ -102,7 +102,6 @@ relay configured through `WEBRTC_ICE_SERVERS`.
 | `/predict/webrtc/{stream_id}` | GET | Get latest prediction for a live WebRTC stream |
 | `/stream` | GET | View active WebRTC camera streams |
 | `/stream/{stream_id}` | GET | View a specific WebRTC camera feed page |
-| `/stream/{stream_id}/snapshot` | GET | View the latest WebRTC camera frame as a single JPEG |
 | `/stream/{stream_id}/mjpeg` | GET | View a specific WebRTC camera feed as raw MJPEG |
 
 ## WebRTC Streaming
@@ -150,9 +149,8 @@ GET /stream/{stream_id}
 ```
 
 If only one camera is connected, `/stream` opens that feed viewer. If multiple
-cameras are connected, `/stream` lists links for each active stream. The viewer
-refreshes `/stream/{stream_id}/snapshot` as new frames arrive. The raw MJPEG
-feed is still available at `/stream/{stream_id}/mjpeg`.
+cameras are connected, `/stream` lists links for each active stream. The raw
+MJPEG feed is available at `/stream/{stream_id}/mjpeg`.
 
 Close a stream with:
 

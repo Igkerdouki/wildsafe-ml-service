@@ -16,7 +16,7 @@ import cv2
 import httpx
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from aiortc import (
     RTCConfiguration,
     RTCIceServer,
@@ -755,46 +755,14 @@ def _mjpeg_stream_response(stream_id: str) -> StreamingResponse:
     )
 
 
-def _snapshot_response(stream_id: str) -> Response:
-    state = webrtc_streams.get(stream_id)
-    if not state:
-        raise HTTPException(404, "Unknown WebRTC stream")
-
-    if state.latest_frame_jpeg:
-        frame = state.latest_frame_jpeg
-    elif _is_active_stream(state):
-        frame = _encode_placeholder_frame(
-            "Waiting for camera frames",
-            f"{state.camera_id} status={state.status} received={state.frames_received}",
-        )
-    else:
-        frame = _encode_placeholder_frame(
-            "Stream ended",
-            state.error or f"{state.camera_id} status={state.status}",
-        )
-
-    return Response(
-        content=frame,
-        media_type="image/jpeg",
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            "X-Frame-Sequence": str(state.latest_frame_sequence),
-            "X-Camera-Id": state.camera_id,
-        },
-    )
-
-
 def _stream_viewer_html(stream_id: str, state: WebRTCStreamState) -> str:
     escaped_stream_id = html.escape(stream_id)
     escaped_camera_id = html.escape(state.camera_id)
     escaped_status = html.escape(state.status)
     escaped_latest_frame_at = html.escape(state.latest_frame_at or "waiting")
     escaped_error = html.escape(state.error or "")
-    snapshot_url = f"/stream/{stream_id}/snapshot"
+    mjpeg_url = f"/stream/{stream_id}/mjpeg"
     status_url_js = json.dumps(f"/predict/webrtc/{stream_id}")
-    snapshot_url_js = json.dumps(snapshot_url)
     return f"""
     <!doctype html>
     <html>
@@ -815,7 +783,7 @@ def _stream_viewer_html(stream_id: str, state: WebRTCStreamState) -> str:
         <h1>Camera Stream</h1>
         <div class="layout">
           <div>
-            <img id="feed" src="{html.escape(snapshot_url)}?init=1" alt="Camera feed for {escaped_camera_id}" />
+            <img id="feed" src="{html.escape(mjpeg_url)}" alt="Camera feed for {escaped_camera_id}" />
           </div>
           <aside>
             <h2>{escaped_camera_id}</h2>
@@ -832,12 +800,6 @@ def _stream_viewer_html(stream_id: str, state: WebRTCStreamState) -> str:
           </aside>
         </div>
         <script>
-          const snapshotUrl = {snapshot_url_js};
-          let lastEncoded = {state.stream_frames_encoded};
-          function refreshFrame(sequence) {{
-            const feed = document.getElementById('feed');
-            feed.src = `${{snapshotUrl}}?seq=${{sequence}}&ts=${{Date.now()}}`;
-          }}
           async function refreshStatus() {{
             try {{
               const response = await fetch({status_url_js}, {{ cache: 'no-store' }});
@@ -850,10 +812,6 @@ def _stream_viewer_html(stream_id: str, state: WebRTCStreamState) -> str:
               for (const key of ['status', 'frames_received', 'frames_skipped', 'stream_frames_encoded', 'frames_processed', 'latest_frame_at', 'error']) {{
                 const el = document.getElementById(key);
                 if (el) el.textContent = data[key] ?? '';
-              }}
-              if (data.stream_frames_encoded !== lastEncoded) {{
-                lastEncoded = data.stream_frames_encoded;
-                refreshFrame(lastEncoded);
               }}
             }} catch (error) {{
               document.getElementById('error').textContent = String(error);
@@ -918,12 +876,6 @@ def stream_latest():
 def stream_mjpeg_by_id(stream_id: str):
     """View a specific active WebRTC camera feed as raw MJPEG."""
     return _mjpeg_stream_response(stream_id)
-
-
-@app.get("/stream/{stream_id}/snapshot")
-def stream_snapshot_by_id(stream_id: str):
-    """Return the latest WebRTC camera frame as a single JPEG."""
-    return _snapshot_response(stream_id)
 
 
 @app.get("/stream/{stream_id}")
