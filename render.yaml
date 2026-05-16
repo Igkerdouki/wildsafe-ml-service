@@ -5,17 +5,11 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: DETECTOR_MODEL_PATH
-        value: /app/models/yolo11n.onnx
-      - key: DETECTOR_MODEL_URL
-        value: https://huggingface.co/webnn/yolo11n/resolve/main/onnx/yolo11n.onnx
-      - key: DETECTION_CONFIDENCE_THRESHOLD
-        value: "0.35"
-      - key: INCIDENT_CONFIDENCE_THRESHOLD
-        value: "0.35"
-      - key: PERSON_LINGER_SECONDS
-        value: "3.0"
-      - key: PERSON_ERRATIC_WINDOW_SECONDS
-        value: "5.0"
+      - key: PRELOAD_MODEL
+        value: "false"
+      - key: CLIP_MODEL_NAME
+        value: openai/clip-vit-base-patch32
+      - key: LOCAL_CLIP_MIN_MEMORY_MB
+        value: "1536"
       - key: ORCHESTRATOR_ALERT_URL
         value: https://smart-wild.onrender.com/alert
