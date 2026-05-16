@@ -12,7 +12,7 @@ import numpy as np
 logger = logging.getLogger("uvicorn.error")
 CLIP_MODEL_NAME = os.getenv("CLIP_MODEL_NAME", "openai/clip-vit-base-patch32")
 LOCAL_ML_ENABLED = os.getenv("LOCAL_ML_ENABLED", "true").lower() in {"1", "true", "yes"}
-LOCAL_CLIP_MIN_MEMORY_MB = int(os.getenv("LOCAL_CLIP_MIN_MEMORY_MB", "1536"))
+LOCAL_CLIP_MIN_MEMORY_MB = int(os.getenv("LOCAL_CLIP_MIN_MEMORY_MB", "700"))
 
 # Lazy imports for heavy ML libraries to avoid slow startup
 if TYPE_CHECKING:
