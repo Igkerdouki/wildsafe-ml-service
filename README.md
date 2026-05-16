@@ -1,28 +1,27 @@
 # WildSafe ML Service
 
-Real-time wildlife detection and human safety monitoring.
+Real-time roadside animal detection and human security monitoring.
 Hosted at https://wildsafe-ml-service.onrender.com/
 
 ## Overview
 
-WildSafe is an ML-powered detection service with two core capabilities:
+WildSafe is an ML-powered road-safety detection service with two core capabilities:
 
-1. **Wildlife Detection** - Identifies animals in video streams for vehicle-mounted cameras to alert drivers of wildlife on or near roads
+1. **Animal Roadway Detection** - Detects animals only when they enter the configured roadway danger zone
 
-2. **Human Safety Monitoring** - Detects anomalies and distress situations involving people (e.g., fallen individuals, unconscious persons, people in distress outside stores) using pose estimation
+2. **Human Security Monitoring** - Detects risky people-related situations in the roadway danger zone, such as lingering, fallen/lying posture, erratic movement, or close multi-person interaction
 
 ## Detection Targets
 
-**Wildlife (12 species):**
-- Deer, Elk, Moose
-- Bear, Coyote, Fox
-- Raccoon, Opossum, Skunk
-- Goat, Horse, Wild Boar
+**Animal road incidents:**
+- Generic COCO animal detections in the configured road ROI
+- Species-specific wildlife detection is a later phase that needs a trained wildlife ONNX model
 
-**Human Behavior States:**
-- Normal (standing, walking)
-- Fallen (lying on ground)
-- Distress (hunched, slumped)
+**Human road/security incidents:**
+- Fallen/lying in road ROI
+- Lingering in road ROI
+- Erratic movement in road ROI
+- Close multi-person interaction in road ROI
 
 ## Quick Start
 
@@ -51,11 +50,8 @@ docker run --rm -p 8000:8000 \
 ```
 
 The container starts Uvicorn on `0.0.0.0:$PORT`, which is required by Render
-web services. A 512 MB Render instance is not enough for local Torch + CLIP
-inference. The app detects that limit and keeps the service alive, but inference
-returns `503 local_ml_unavailable` until the service runs on a larger instance.
-Use `PRELOAD_MODEL=blocking` only on an instance with enough memory to load the
-model before serving inference requests.
+web services. The production detector uses OpenCV DNN with a YOLO ONNX model
+to reduce memory use on small instances.
 
 ## Render
 
@@ -67,10 +63,13 @@ Recommended Render environment variables:
 | Variable | Description |
 |----------|-------------|
 | `ORCHESTRATOR_ALERT_URL` | Orchestrator `/alert` endpoint |
-| `PRELOAD_MODEL` | `false` to lazy-load, `background` to load after boot, `blocking` to load before serving on larger instances |
-| `CLIP_MODEL_NAME` | Hugging Face CLIP model id; defaults to `openai/clip-vit-base-patch32` for lower memory usage |
-| `LOCAL_ML_ENABLED` | Set `false` to intentionally run only health/WebRTC/stream endpoints without local inference |
-| `LOCAL_CLIP_MIN_MEMORY_MB` | Minimum memory required before loading local CLIP; defaults to `1536` |
+| `PRELOAD_MODEL` | `false` to lazy-load, `background` to load after boot, `blocking` to load before serving |
+| `DETECTOR_MODEL_PATH` | ONNX detector path; defaults to `/app/models/yolo11n.onnx` in Docker |
+| `DETECTOR_MODEL_URL` | URL used to download the ONNX detector if missing |
+| `DETECTION_CONFIDENCE_THRESHOLD` | Detector confidence threshold; defaults to `0.35` |
+| `INCIDENT_CONFIDENCE_THRESHOLD` | Minimum confidence before posting incidents; defaults to `0.35` |
+| `PERSON_LINGER_SECONDS` | Seconds a person must remain in road ROI before lingering alert; defaults to `3.0` |
+| `PERSON_ERRATIC_WINDOW_SECONDS` | Time window for erratic movement analysis; defaults to `5.0` |
 | `WEBRTC_ICE_SERVERS` | Optional JSON array of STUN/TURN servers for WebRTC |
 
 Example `WEBRTC_ICE_SERVERS`:
@@ -120,13 +119,19 @@ Request body:
   "sdp": "v=0...",
   "type": "offer",
   "sample_fps": 3.0,
-  "confidence_threshold": 0.1,
+  "confidence_threshold": 0.35,
   "camera_id": "rpi-roadside-001",
   "latitude": 37.7749,
   "longitude": -122.4194,
   "road_name": "CA-1",
   "direction": "northbound",
-  "mile_marker": "12.4"
+  "mile_marker": "12.4",
+  "road_roi": [
+    {"x": 0.20, "y": 0.55},
+    {"x": 0.80, "y": 0.55},
+    {"x": 1.00, "y": 1.00},
+    {"x": 0.00, "y": 1.00}
+  ]
 }
 ```
 
@@ -153,8 +158,10 @@ Close a stream with:
 DELETE /predict/webrtc/{stream_id}
 ```
 
-When a processed WebRTC frame crosses the anomaly threshold, the ML service
-POSTs an incident payload to `http://localhost:8090/alert`.
+When a processed WebRTC frame produces an animal or person security incident in
+the configured `road_roi`, the ML service POSTs an incident payload to the
+configured `ORCHESTRATOR_ALERT_URL`. If `road_roi` is missing, the service still
+streams and reports predictions but does not post incidents.
 
 ## Project Structure
 
@@ -177,31 +184,8 @@ wildsafe-ml-service/
 
 ## Current Models
 
-- **Classification:** CLIP ViT-L/14 zero-shot (wildlife + person detection)
-- **Pose Estimation:** MediaPipe PoseLandmarker (human behavior analysis)
-
-## Performance Results
-
-Detection accuracy after prompt engineering optimization:
-
-| Species | Confidence |
-|---------|------------|
-| Deer | 98% |
-| Bear | 99% |
-| Raccoon | 98% |
-| Coyote | 98% |
-| Moose | 95% |
-| Fox | 96% |
-| Elk | 95% |
-| Wild Boar | 94% |
-
-| Human State | Confidence |
-|-------------|------------|
-| Normal (standing/walking) | 95% |
-| Fallen (lying down) | 83% |
-| Distress (hunched) | 85% |
-
-**Latency:** ~500ms per frame (Apple M4 Pro)
+- **Object detector:** YOLO ONNX through OpenCV DNN
+- **Road-safety logic:** rule-based road ROI, animal, and person security heuristics
 
 ## Planned Features
 
@@ -216,9 +200,9 @@ Detection accuracy after prompt engineering optimization:
 
 ## Tech Stack
 
-Python, FastAPI, PyTorch, CLIP, MediaPipe
+Python, FastAPI, OpenCV DNN, ONNX, aiortc
 
 ## Goals
 
 1. **Road Safety** - Reduce wildlife-vehicle collisions through real-time intelligent roadside alerts
-2. **Public Safety** - Monitor for human distress situations (fallen persons, medical emergencies) in retail, public spaces, and urban environments
+2. **Public Safety** - Monitor for roadway security situations involving people in unsafe road zones

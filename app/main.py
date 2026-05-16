@@ -49,16 +49,13 @@ ORCHESTRATOR_ALERT_URL = os.getenv(
     "ORCHESTRATOR_ALERT_URL",
     "https://smart-wild.onrender.com/alert",
 )
-INCIDENT_CONFIDENCE_THRESHOLD = 0.7
+INCIDENT_CONFIDENCE_THRESHOLD = float(os.getenv("INCIDENT_CONFIDENCE_THRESHOLD", "0.35"))
 INCIDENT_COOLDOWN_SECONDS = 30.0
 STREAM_FPS = float(os.getenv("STREAM_FPS", "10"))
 STREAM_CLEANUP_TTL_SECONDS = float(os.getenv("STREAM_CLEANUP_TTL_SECONDS", "30"))
-ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
+ANIMAL_CLASSES = {"animal_on_road"}
 PERSON_CLASSES = {
-    "person_normal",
-    "person_abnormal",
-    "person_fallen",
-    "person_distress",
+    "person_security_issue",
 }
 
 logger = logging.getLogger("uvicorn.error")
@@ -267,7 +264,7 @@ def _load_ice_servers() -> list[RTCIceServer]:
 
 app = FastAPI(
     title="WildSafe ML Service",
-    description="Wildlife species classification API using CLIP zero-shot",
+    description="Road-safety incident detection API using lightweight YOLO ONNX",
     version="0.2.0"
 )
 
@@ -281,6 +278,7 @@ class WebRTCStreamState:
     road_name: Optional[str] = None
     direction: Optional[str] = None
     mile_marker: Optional[str] = None
+    road_roi: Optional[list[dict]] = None
     status: str = "connecting"
     frames_received: int = 0
     frames_skipped: int = 0
@@ -291,6 +289,7 @@ class WebRTCStreamState:
     latest_frame_at: Optional[str] = None
     last_stream_frame_at: float = 0.0
     latest_prediction: Optional[dict] = None
+    inference_context: Optional[dict] = None
     error: Optional[str] = None
     terminal_at: Optional[float] = None
     cleanup_task: Optional[asyncio.Task] = None
@@ -360,10 +359,8 @@ def _utc_now_iso() -> str:
 
 
 def _incident_type_for_prediction(predicted_label: str) -> Optional[str]:
-    if predicted_label in ANIMAL_CLASSES:
-        return "animal_on_road"
-    if predicted_label in PERSON_CLASSES:
-        return "person_on_road"
+    if predicted_label in {"animal_on_road", "person_security_issue"}:
+        return predicted_label
     return None
 
 
@@ -371,22 +368,13 @@ def _format_prediction_for_terminal(result: dict) -> str:
     predicted_label = result["predicted_species"]
     confidence = result["confidence"]
 
-    if predicted_label in ANIMAL_CLASSES:
-        animal_name = predicted_label.replace("_", " ")
-        return f"{ANSI_GREEN}ANIMAL{ANSI_RESET} {animal_name} confidence={confidence:.4f}"
+    if predicted_label == "animal_on_road":
+        reason = result.get("incident_reason") or "animal_in_road"
+        return f"{ANSI_GREEN}ANIMAL{ANSI_RESET} {reason} confidence={confidence:.4f}"
 
-    if predicted_label in PERSON_CLASSES:
-        person_state = predicted_label.replace("person_", "").replace("_", " ")
-        pose = result.get("pose_analysis")
-        if pose:
-            pose_behavior = pose.get("pose_behavior") or "unknown_pose"
-            body_angle = pose.get("body_angle")
-            return (
-                f"{ANSI_BLUE}PERSON{ANSI_RESET} {person_state} "
-                f"doing={pose_behavior} body_angle={body_angle} "
-                f"confidence={confidence:.4f}"
-            )
-        return f"{ANSI_BLUE}PERSON{ANSI_RESET} {person_state} confidence={confidence:.4f}"
+    if predicted_label == "person_security_issue":
+        reason = result.get("incident_reason") or "person_security_issue"
+        return f"{ANSI_BLUE}PERSON{ANSI_RESET} {reason} confidence={confidence:.4f}"
 
     return f"UNKNOWN {predicted_label} confidence={confidence:.4f}"
 
@@ -435,6 +423,7 @@ def _mjpeg_part(frame: bytes, sequence: int, camera_id: str) -> bytes:
     return (
         b"--frame\r\n"
         + b"Content-Type: image/jpeg\r\n"
+        + f"Content-Length: {len(frame)}\r\n".encode()
         + f"X-Frame-Sequence: {sequence}\r\n".encode()
         + f"X-Camera-Id: {camera_id}\r\n".encode()
         + b"\r\n"
@@ -452,12 +441,12 @@ def _recommended_action(incident_type: str) -> dict:
                 "and notify nearby drivers."
             ),
         }
-    if incident_type == "person_on_road":
+    if incident_type == "person_security_issue":
         return {
             "priority": "critical",
             "message": (
-                "Person detected on or near roadway. Trigger roadside warning "
-                "and notify operators for review."
+                "Person security issue detected in roadway danger zone. "
+                "Notify operators for review."
             ),
         }
     return {
@@ -559,14 +548,14 @@ async def _preload_model_background():
     try:
         await asyncio.to_thread(load_model)
     except LocalMLUnavailableError as exc:
-        logger.warning("Background CLIP model preload skipped reason=%s", exc)
+        logger.warning("Background detector model preload skipped reason=%s", exc)
     except Exception as exc:
-        logger.exception("Background CLIP model preload failed error=%r", exc)
+        logger.exception("Background detector model preload failed error=%r", exc)
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Optionally load CLIP at service startup."""
+    """Optionally load the detector at service startup."""
     preload_model = os.getenv("PRELOAD_MODEL", "false").lower()
     logger.info(
         "ML service startup preload_model=%s webrtc_ice_servers_present=%s orchestrator_alert_url=%s",
@@ -575,19 +564,19 @@ async def startup_event():
         ORCHESTRATOR_ALERT_URL,
     )
     if preload_model in {"blocking", "1", "true", "yes"}:
-        logger.info("Blocking startup until CLIP model preload completes")
+        logger.info("Blocking startup until detector model preload completes")
         start = time.perf_counter()
         try:
             await asyncio.to_thread(load_model)
             elapsed_s = time.perf_counter() - start
-            logger.info("CLIP model preload completed during startup elapsed_s=%.2f", elapsed_s)
+            logger.info("Detector model preload completed during startup elapsed_s=%.2f", elapsed_s)
         except LocalMLUnavailableError as exc:
-            logger.warning("CLIP model preload skipped reason=%s", exc)
+            logger.warning("Detector model preload skipped reason=%s", exc)
     elif preload_model == "background":
-        logger.info("Scheduling background CLIP model preload")
+        logger.info("Scheduling background detector model preload")
         asyncio.create_task(_preload_model_background())
     else:
-        logger.info("CLIP model preload disabled; model will load on first inference")
+        logger.info("Detector model preload disabled; model will load on first inference")
 
 
 @app.on_event("shutdown")
@@ -621,20 +610,21 @@ def health():
         accuracy=info["accuracy"],
         local_ml_enabled=info["local_ml_enabled"],
         memory_limit_mb=info["memory_limit_mb"],
-        local_clip_min_memory_mb=info["local_clip_min_memory_mb"],
+        detector_model_path=info.get("detector_model_path"),
+        detection_confidence_threshold=info.get("detection_confidence_threshold"),
     )
 
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_upload(
     file: UploadFile = File(...),
-    confidence_threshold: float = 0.1
+    confidence_threshold: float = 0.35
 ):
     """
-    Classify wildlife species in an uploaded image.
+    Detect road-safety objects/incidents in an uploaded image.
 
     Accepts: JPEG, PNG, WebP images
-    Returns: Top predicted species with confidence scores
+    Returns: detections and road-safety incident debug fields
     """
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(400, "File must be an image")
@@ -656,7 +646,7 @@ async def predict_upload(
 @app.post("/predict/base64", response_model=PredictionResponse)
 async def predict_base64(request: Base64ImageRequest):
     """
-    Classify wildlife species in a base64-encoded image.
+    Detect road-safety objects/incidents in a base64-encoded image.
     """
     try:
         image_data = base64.b64decode(request.image)
@@ -679,7 +669,7 @@ async def predict_base64(request: Base64ImageRequest):
 @app.post("/predict/url", response_model=PredictionResponse)
 async def predict_url(request: URLImageRequest):
     """
-    Classify wildlife species in an image fetched from URL.
+    Detect road-safety objects/incidents in an image fetched from URL.
     """
     try:
         async with httpx.AsyncClient() as client:
@@ -1002,6 +992,8 @@ async def _process_webrtc_video_track(
                     image,
                     confidence_threshold,
                     use_pose_detection,
+                    state.road_roi,
+                    state.inference_context,
                 )
             except LocalMLUnavailableError as exc:
                 state.error = str(exc)
@@ -1020,7 +1012,7 @@ async def _process_webrtc_video_track(
 
             predicted_label = result["predicted_species"]
             confidence = result["confidence"]
-            incident_type = _incident_type_for_prediction(predicted_label)
+            incident_type = result.get("incident_type") or _incident_type_for_prediction(predicted_label)
             logger.info(
                 "WebRTC prediction stream_id=%s camera_id=%s frame=%s %s incident_type=%s inference_elapsed_ms=%.1f reported_inference_ms=%s alert=%s speaker_frequency_hz=%s",
                 stream_id,
@@ -1139,10 +1131,16 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
         road_name=request.road_name,
         direction=request.direction,
         mile_marker=request.mile_marker,
+        road_roi=(
+            [point.model_dump() for point in request.road_roi]
+            if request.road_roi
+            else None
+        ),
+        inference_context={},
     )
     webrtc_streams[stream_id] = state
     logger.info(
-        "WebRTC offer accepted stream_id=%s camera_id=%s lat=%s lon=%s road_name=%s direction=%s mile_marker=%s sample_fps=%.2f confidence_threshold=%.2f use_pose_detection=%s ice_servers=%s offer_summary=%s",
+        "WebRTC offer accepted stream_id=%s camera_id=%s lat=%s lon=%s road_name=%s direction=%s mile_marker=%s road_roi_points=%s sample_fps=%.2f confidence_threshold=%.2f use_pose_detection=%s ice_servers=%s offer_summary=%s",
         stream_id,
         request.camera_id,
         request.latitude,
@@ -1150,6 +1148,7 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
         request.road_name,
         request.direction,
         request.mile_marker,
+        len(request.road_roi or []),
         request.sample_fps,
         request.confidence_threshold,
         request.use_pose_detection,
@@ -1347,11 +1346,11 @@ async def close_webrtc_stream(stream_id: str):
 @app.post("/predict/video", response_model=VideoPredictionResponse)
 async def predict_video_upload(
     file: UploadFile = File(...),
-    confidence_threshold: float = 0.1,
+    confidence_threshold: float = 0.35,
     sample_fps: Optional[float] = 3.0
 ):
     """
-    Classify wildlife species in an uploaded video.
+    Detect road-safety objects/incidents in an uploaded video.
 
     Aggregates frame-level predictions using weighted voting.
 

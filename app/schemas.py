@@ -2,9 +2,24 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 
+class RoadRoiPoint(BaseModel):
+    x: float = Field(ge=0.0, le=1.0, description="Normalized x coordinate in frame")
+    y: float = Field(ge=0.0, le=1.0, description="Normalized y coordinate in frame")
+
+
 class SpeciesPrediction(BaseModel):
     species: str = Field(description="Species name")
     confidence: float = Field(description="Confidence score 0.0-1.0")
+
+
+class DetectionObject(BaseModel):
+    label: str
+    category: str
+    confidence: float
+    bbox: list[float]
+    road_zone_hit: bool = False
+    track_duration_s: Optional[float] = None
+    erratic: Optional[bool] = None
 
 
 class PoseAnalysis(BaseModel):
@@ -37,6 +52,12 @@ class PredictionResponse(BaseModel):
         default=None,
         description="Pose analysis for person behavior detection"
     )
+    model_backend: Optional[str] = None
+    detections: list[DetectionObject] = Field(default_factory=list)
+    road_roi_present: bool = False
+    road_zone_hit: bool = False
+    incident_type: Optional[str] = None
+    incident_reason: Optional[str] = None
 
 
 class VideoFrameResult(BaseModel):
@@ -61,7 +82,7 @@ class VideoPredictionResponse(BaseModel):
 class WebRTCOfferRequest(BaseModel):
     sdp: str = Field(description="WebRTC SDP offer from the streaming client")
     type: str = Field(default="offer", description="SDP message type")
-    confidence_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
+    confidence_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
     sample_fps: float = Field(default=3.0, gt=0.0)
     camera_id: str = Field(description="Roadside camera identifier")
     latitude: float = Field(description="Roadside camera latitude")
@@ -69,9 +90,13 @@ class WebRTCOfferRequest(BaseModel):
     road_name: Optional[str] = Field(default=None, description="Road name")
     direction: Optional[str] = Field(default=None, description="Road direction")
     mile_marker: Optional[str] = Field(default=None, description="Road mile marker")
+    road_roi: Optional[list[RoadRoiPoint]] = Field(
+        default=None,
+        description="Normalized polygon points for the roadway danger zone"
+    )
     use_pose_detection: bool = Field(
         default=False,
-        description="Enable MediaPipe pose analysis for person detections"
+        description="Deprecated; person behavior is handled by lightweight road-zone rules"
     )
 
 
@@ -97,21 +122,22 @@ class WebRTCStreamStatus(BaseModel):
 
 class Base64ImageRequest(BaseModel):
     image: str = Field(description="Base64-encoded image data")
-    confidence_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
+    confidence_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
 
 
 class URLImageRequest(BaseModel):
     url: str = Field(description="URL to fetch image from")
-    confidence_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
+    confidence_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
 
 
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     model_name: str
-    model_type: str = Field(default="zero-shot-classifier")
+    model_type: str = Field(default="opencv-dnn-yolo-onnx")
     target_classes: list[str]
-    accuracy: str = Field(default="100% (test set)")
+    accuracy: str = Field(default="rule-based road-safety detector")
     local_ml_enabled: bool = True
     memory_limit_mb: Optional[int] = None
-    local_clip_min_memory_mb: int = 1536
+    detector_model_path: Optional[str] = None
+    detection_confidence_threshold: Optional[float] = None
