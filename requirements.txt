@@ -6,6 +6,7 @@ opencv-python-headless>=4.8.0
 numpy>=1.24.0
 httpx>=0.25.0
 transformers>=4.40.0,<6.0.0
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
 aiortc>=1.10.0
 mediapipe>=0.10.14
