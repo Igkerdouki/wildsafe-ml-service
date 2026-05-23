@@ -3,7 +3,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    HF_HOME=/home/app/.cache/huggingface \
+    CLIP_MODEL_DIR=/home/app/.cache/clip_onnx \
     PORT=8000
 
 WORKDIR /app
@@ -25,7 +25,7 @@ RUN pip install --upgrade pip \
 COPY app ./app
 
 RUN useradd --create-home --shell /usr/sbin/nologin app \
-    && mkdir -p /home/app/.cache/huggingface \
+    && mkdir -p /home/app/.cache/clip_onnx \
     && chown -R app:app /app /home/app
 
 USER app

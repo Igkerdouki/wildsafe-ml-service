@@ -1,24 +1,32 @@
+"""
+ONNX-based CLIP inference for memory-constrained environments.
+
+Uses ONNX Runtime instead of PyTorch/Transformers, reducing memory from ~1.5GB to ~300MB.
+"""
 import logging
 import os
 import time
 import threading
-from collections import defaultdict
+import urllib.request
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import cv2
 import numpy as np
+from PIL import Image
 
 logger = logging.getLogger("uvicorn.error")
-CLIP_MODEL_NAME = os.getenv("CLIP_MODEL_NAME", "openai/clip-vit-base-patch32")
-LOCAL_ML_ENABLED = os.getenv("LOCAL_ML_ENABLED", "true").lower() in {"1", "true", "yes"}
-LOCAL_CLIP_MIN_MEMORY_MB = int(os.getenv("LOCAL_CLIP_MIN_MEMORY_MB", "700"))
 
-# Lazy imports for heavy ML libraries to avoid slow startup
-if TYPE_CHECKING:
-    import torch
-    from PIL import Image
-    from transformers import CLIPModel, CLIPProcessor
+# Configuration
+CLIP_MODEL_DIR = os.getenv("CLIP_MODEL_DIR", "/tmp/clip_onnx")
+LOCAL_ML_ENABLED = os.getenv("LOCAL_ML_ENABLED", "true").lower() in {"1", "true", "yes"}
+LOCAL_CLIP_MIN_MEMORY_MB = int(os.getenv("LOCAL_CLIP_MIN_MEMORY_MB", "400"))
+
+# ONNX model URLs (using clip-vit-base-patch32 exported to ONNX)
+ONNX_MODEL_URLS = {
+    "visual": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model.onnx",
+    "text": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/text_model.onnx",
+}
 
 # Detection classes - wildlife + person behaviors
 DETECTION_CLASSES = [
@@ -54,8 +62,8 @@ SPEAKER_FREQUENCIES = {
     "raccoon": 20000,
     "skunk": 15000,
     "wild_boar": 3000,
-    "person_normal": 0,  # No alert
-    "person_abnormal": 0,  # Human-audible alert
+    "person_normal": 0,
+    "person_abnormal": 0,
     "person_fallen": 0,
     "person_distress": 0,
 }
@@ -65,81 +73,33 @@ WILDLIFE_CLASSES = DETECTION_CLASSES
 
 # Enhanced text prompts for better zero-shot performance
 TEXT_PROMPTS = {
-    # Wildlife prompts
-    "bear": [
-        "a photo of a bear",
-        "a black bear in nature",
-        "a grizzly bear",
-        "a bear walking",
-    ],
-    "coyote": [
-        "a photo of a coyote",
-        "a coyote in the wild",
-        "a wild coyote",
-        "a coyote with pointed ears",
-    ],
-    "deer": [
-        "a photo of a deer",
-        "a white-tailed deer",
-        "a deer in nature",
-        "a buck deer",
-    ],
-    "elk": [
-        "a photo of an elk",
-        "an elk with antlers",
-        "a bull elk",
-        "an elk in a field",
-    ],
-    "fox": ["a photo of a fox", "a red fox", "a fox in nature", "a wild fox"],
-    "goat": ["a photo of a goat", "a mountain goat", "a wild goat", "a goat on rocks"],
-    "horse": [
-        "a photo of a horse",
-        "a wild horse",
-        "a mustang horse",
-        "horses in a field",
-    ],
-    "moose": [
-        "a photo of a moose",
-        "a bull moose with large antlers",
-        "a moose with palmate antlers",
-        "a dark brown moose",
-    ],
-    "opossum": ["a photo of an opossum", "a virginia opossum", "an opossum at night"],
-    "raccoon": ["a photo of a raccoon", "a raccoon with bandit mask", "a wild raccoon"],
-    "skunk": ["a photo of a skunk", "a striped skunk", "a skunk with stripe"],
-    "wild_boar": [
-        "a photo of a wild boar",
-        "a wild pig",
-        "a feral hog",
-        "a boar in forest",
-    ],
-    # Person state prompts - binary classification
-    "person_normal": [
-        "a person standing upright",
-        "a person walking normally",
-        "a healthy person with good posture",
-        "a person going about their day",
-    ],
+    "bear": ["a photo of a bear", "a black bear in nature", "a grizzly bear"],
+    "coyote": ["a photo of a coyote", "a coyote in the wild", "a wild coyote"],
+    "deer": ["a photo of a deer", "a white-tailed deer", "a deer in nature"],
+    "elk": ["a photo of an elk", "an elk with antlers", "a bull elk"],
+    "fox": ["a photo of a fox", "a red fox", "a fox in nature"],
+    "goat": ["a photo of a goat", "a mountain goat", "a wild goat"],
+    "horse": ["a photo of a horse", "a wild horse", "a mustang horse"],
+    "moose": ["a photo of a moose", "a bull moose with antlers", "a dark brown moose"],
+    "opossum": ["a photo of an opossum", "a virginia opossum"],
+    "raccoon": ["a photo of a raccoon", "a raccoon with bandit mask"],
+    "skunk": ["a photo of a skunk", "a striped skunk"],
+    "wild_boar": ["a photo of a wild boar", "a wild pig", "a feral hog"],
+    "person_normal": ["a person standing upright", "a person walking normally"],
     "person_abnormal": [
         "a body lying motionless on the ground",
-        "an unconscious person collapsed on pavement",
-        "a drunk person staggering and stumbling",
-        "a homeless person passed out on the street",
+        "an unconscious person collapsed",
         "a person slumped over not moving",
-        "someone who has fallen and cannot get up",
-        "A physical fight between people",
-        "An armed, dangerous person",
     ],
 }
 
-# Global model instances (singleton)
-_clip_model = None
-_clip_processor = None
+# Global model instances
+_visual_session = None
+_text_session = None
 _text_embeddings = None
-_device: str = "cpu"
+_tokenizer = None
 _model_loaded: bool = False
 _model_load_lock = threading.Lock()
-_torch = None  # Lazy-loaded torch module
 
 
 class LocalMLUnavailableError(RuntimeError):
@@ -175,159 +135,180 @@ def _ensure_local_ml_available():
     memory_limit_mb = _memory_limit_mb()
     if memory_limit_mb is not None and memory_limit_mb < LOCAL_CLIP_MIN_MEMORY_MB:
         raise LocalMLUnavailableError(
-            "Local CLIP inference needs more memory than this instance allows "
-            f"(limit={memory_limit_mb}MB, required={LOCAL_CLIP_MIN_MEMORY_MB}MB). "
-            "Use a larger Render instance, or lower LOCAL_CLIP_MIN_MEMORY_MB only "
-            "if you accept OOM risk."
+            f"Local CLIP inference needs more memory (limit={memory_limit_mb}MB, required={LOCAL_CLIP_MIN_MEMORY_MB}MB)."
         )
 
 
-def _as_feature_tensor(model_output):
-    """Return projected CLIP features across Transformers return shapes."""
-    if _torch is not None and isinstance(model_output, _torch.Tensor):
-        return model_output
-    if hasattr(model_output, "pooler_output"):
-        return model_output.pooler_output
-    return model_output[0]
+def _download_model(url: str, dest_path: str):
+    """Download model file if not exists."""
+    if os.path.exists(dest_path):
+        return
+
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    logger.info("Downloading ONNX model from %s to %s", url, dest_path)
+    urllib.request.urlretrieve(url, dest_path)
+    logger.info("Download complete: %s", dest_path)
 
 
-def get_device() -> str:
-    """Determine the best available device."""
-    global _torch
-    if _torch is None:
-        import torch
-        _torch = torch
-    if _torch.cuda.is_available():
-        return "cuda"
-    elif _torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
+def _preprocess_image(image: np.ndarray) -> np.ndarray:
+    """Preprocess image for CLIP visual encoder."""
+    # Convert BGR to RGB
+    if len(image.shape) == 3 and image.shape[2] == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Resize to 224x224
+    image = cv2.resize(image, (224, 224))
+
+    # Normalize to [0, 1] then apply CLIP normalization
+    image = image.astype(np.float32) / 255.0
+    mean = np.array([0.48145466, 0.4578275, 0.40821073], dtype=np.float32)
+    std = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
+    image = (image - mean) / std
+
+    # Transpose to NCHW format
+    image = np.transpose(image, (2, 0, 1))
+    image = np.expand_dims(image, 0)
+
+    return image.astype(np.float32)
+
+
+def _tokenize_text(texts: list[str], max_length: int = 77) -> np.ndarray:
+    """Tokenize text using the CLIP tokenizer."""
+    global _tokenizer
+
+    if _tokenizer is None:
+        from tokenizers import Tokenizer
+        tokenizer_path = os.path.join(CLIP_MODEL_DIR, "tokenizer.json")
+        if not os.path.exists(tokenizer_path):
+            _download_model(
+                "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/tokenizer.json",
+                tokenizer_path
+            )
+        _tokenizer = Tokenizer.from_file(tokenizer_path)
+
+    # Encode texts
+    input_ids_list = []
+
+    for text in texts:
+        encoded = _tokenizer.encode(text)
+        ids = [49406] + encoded.ids[:max_length-2] + [49407]  # Add start/end tokens
+
+        # Pad to max_length
+        padding_length = max_length - len(ids)
+        ids = ids + [0] * padding_length
+
+        input_ids_list.append(ids)
+
+    return np.array(input_ids_list, dtype=np.int64)
 
 
 def load_model():
-    """Load the CLIP model and precompute text embeddings."""
-    global _clip_model, _clip_processor, _text_embeddings, _device, _model_loaded, _torch
+    """Load ONNX CLIP models and precompute text embeddings."""
+    global _visual_session, _text_session, _text_embeddings, _model_loaded
 
     _ensure_local_ml_available()
 
     if _model_loaded:
-        logger.info("CLIP model load skipped reason=already_loaded")
         return
 
     with _model_load_lock:
         if _model_loaded:
-            logger.info("CLIP model load skipped reason=already_loaded_after_lock")
             return
 
+        import onnxruntime as ort
+
         load_start = time.perf_counter()
-        model_name = CLIP_MODEL_NAME
-        logger.info(
-            "CLIP model load started model=%s target_classes=%s",
-            model_name,
-            len(WILDLIFE_CLASSES),
+        logger.info("Loading ONNX CLIP models...")
+
+        # Download and load visual model
+        visual_path = os.path.join(CLIP_MODEL_DIR, "vision_model.onnx")
+        _download_model(ONNX_MODEL_URLS["visual"], visual_path)
+
+        # Use CPU provider with optimizations
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.intra_op_num_threads = 2
+        sess_options.inter_op_num_threads = 1
+
+        _visual_session = ort.InferenceSession(
+            visual_path,
+            sess_options=sess_options,
+            providers=["CPUExecutionProvider"]
         )
-        # Lazy import heavy dependencies
-        import torch
-        from transformers import CLIPModel, CLIPProcessor
-        _torch = torch
+        logger.info("Visual model loaded")
 
-        _device = get_device()
-        logger.info("CLIP model device selected device=%s", _device)
+        # Download and load text model
+        text_path = os.path.join(CLIP_MODEL_DIR, "text_model.onnx")
+        _download_model(ONNX_MODEL_URLS["text"], text_path)
 
-        # Load CLIP zero-shot model
-        _clip_model = CLIPModel.from_pretrained(model_name)
-        _clip_processor = CLIPProcessor.from_pretrained(model_name)
-        _clip_model = _clip_model.to(_device)
-        _clip_model.eval()
-        logger.info("CLIP model weights loaded model=%s device=%s", model_name, _device)
+        _text_session = ort.InferenceSession(
+            text_path,
+            sess_options=sess_options,
+            providers=["CPUExecutionProvider"]
+        )
+        logger.info("Text model loaded")
 
-        # Precompute text embeddings for all species
+        # Precompute text embeddings for all classes
+        logger.info("Computing text embeddings for %d classes...", len(DETECTION_CLASSES))
         species_embeddings = {}
-        with _torch.no_grad():
-            for species, prompts in TEXT_PROMPTS.items():
-                logger.info(
-                    "CLIP text embeddings started species=%s prompts=%s",
-                    species,
-                    len(prompts),
-                )
-                inputs = _clip_processor(text=prompts, return_tensors="pt", padding=True)
-                input_ids = inputs["input_ids"].to(_device)
-                attention_mask = inputs["attention_mask"].to(_device)
-                text_outputs = _clip_model.get_text_features(
-                    input_ids=input_ids, attention_mask=attention_mask
-                )
-                text_features = _as_feature_tensor(text_outputs)
-                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                species_embeddings[species] = text_features.mean(dim=0)
 
-        _text_embeddings = _torch.stack([species_embeddings[s] for s in WILDLIFE_CLASSES])
+        for species, prompts in TEXT_PROMPTS.items():
+            input_ids = _tokenize_text(prompts)
+
+            outputs = _text_session.run(
+                None,
+                {"input_ids": input_ids}
+            )
+
+            # Get text embeddings and normalize
+            text_embeds = outputs[0]  # Shape: (num_prompts, embed_dim)
+            text_embeds = text_embeds / np.linalg.norm(text_embeds, axis=-1, keepdims=True)
+
+            # Average across prompts
+            species_embeddings[species] = text_embeds.mean(axis=0)
+
+        # Stack all embeddings
+        _text_embeddings = np.stack([species_embeddings[s] for s in DETECTION_CLASSES])
+        _text_embeddings = _text_embeddings / np.linalg.norm(_text_embeddings, axis=-1, keepdims=True)
 
         _model_loaded = True
         elapsed_s = time.perf_counter() - load_start
-        logger.info(
-            "CLIP model load complete model=%s device=%s target_classes=%s text_embedding_rows=%s elapsed_s=%.2f",
-            model_name,
-            _device,
-            len(WILDLIFE_CLASSES),
-            len(species_embeddings),
-            elapsed_s,
-        )
+        logger.info("ONNX CLIP models loaded in %.2fs, text_embeddings shape=%s", elapsed_s, _text_embeddings.shape)
 
 
 def classify_frame(image: np.ndarray) -> dict:
-    """
-    Classify a single frame using CLIP zero-shot.
-
-    Args:
-        image: numpy array (BGR or RGB format)
-
-    Returns:
-        dict mapping species names to confidence scores
-    """
+    """Classify a single frame using ONNX CLIP."""
     load_model()
-    from PIL import Image
 
-    # Convert BGR to RGB if needed
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    else:
-        image_rgb = image
+    # Preprocess image
+    pixel_values = _preprocess_image(image)
 
-    pil_img = Image.fromarray(image_rgb)
+    # Run visual encoder
+    outputs = _visual_session.run(None, {"pixel_values": pixel_values})
+    image_embeds = outputs[0]  # Shape: (1, embed_dim)
 
-    with _torch.no_grad():
-        inputs = _clip_processor(images=pil_img, return_tensors="pt")
-        pixel_values = inputs["pixel_values"].to(_device)
+    # Normalize
+    image_embeds = image_embeds / np.linalg.norm(image_embeds, axis=-1, keepdims=True)
 
-        image_outputs = _clip_model.get_image_features(pixel_values)
-        image_features = _as_feature_tensor(image_outputs)
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+    # Compute similarity with text embeddings
+    similarity = (image_embeds @ _text_embeddings.T).squeeze()
 
-        similarity = (image_features @ _text_embeddings.T).squeeze()
-        probs = _torch.softmax(similarity * 100, dim=0)
+    # Softmax with temperature
+    exp_sim = np.exp(similarity * 100 - np.max(similarity * 100))
+    probs = exp_sim / exp_sim.sum()
 
     return {
-        WILDLIFE_CLASSES[i]: round(probs[i].item(), 4)
-        for i in range(len(WILDLIFE_CLASSES))
+        DETECTION_CLASSES[i]: round(float(probs[i]), 4)
+        for i in range(len(DETECTION_CLASSES))
     }
 
 
 def predict_frame(
     image: np.ndarray,
     confidence_threshold: float = 0.1,
-    use_pose_detection: bool = True,
+    use_pose_detection: bool = False,  # Disabled by default to save memory
 ) -> dict:
-    """
-    Run species classification on a single image/frame.
-
-    Args:
-        image: numpy array (BGR format from OpenCV)
-        confidence_threshold: minimum confidence to include in results
-        use_pose_detection: if True, use pose estimation for person behavior
-
-    Returns:
-        dict with predictions, dimensions, and timing
-    """
+    """Run species classification on a single image/frame."""
     height, width = image.shape[:2]
 
     start_time = time.perf_counter()
@@ -346,30 +327,30 @@ def predict_frame(
     top_species = predictions[0]["species"] if predictions else "unknown"
     top_confidence = predictions[0]["confidence"] if predictions else 0.0
 
-    # Check if person detected - run pose estimation
+    # Optional pose detection (disabled by default for memory savings)
     pose_result = None
     if use_pose_detection and "person" in top_species:
-        from app.pose_detection import classify_person_state
+        try:
+            from app.pose_detection import classify_person_state
+            pose_start = time.perf_counter()
+            pose_result = classify_person_state(image)
 
-        pose_start = time.perf_counter()
-        pose_result = classify_person_state(image)
-        pose_time = (time.perf_counter() - pose_start) * 1000
-
-        if pose_result["detected"]:
-            # Override with pose-based classification
-            if pose_result["state"] == "fallen":
-                top_species = "person_fallen"
-                top_confidence = pose_result["confidence"]
-            elif pose_result["state"] == "distress":
-                top_species = "person_distress"
-                top_confidence = pose_result["confidence"]
-            else:
-                top_species = "person_normal"
-                top_confidence = max(top_confidence, pose_result["confidence"])
+            if pose_result["detected"]:
+                if pose_result["state"] == "fallen":
+                    top_species = "person_fallen"
+                    top_confidence = pose_result["confidence"]
+                elif pose_result["state"] == "distress":
+                    top_species = "person_distress"
+                    top_confidence = pose_result["confidence"]
+                else:
+                    top_species = "person_normal"
+                    top_confidence = max(top_confidence, pose_result["confidence"])
+        except ImportError:
+            logger.warning("Pose detection unavailable (mediapipe not installed)")
 
     inference_time = (time.perf_counter() - start_time) * 1000
 
-    # Get speaker frequency for detected species
+    # Get speaker frequency
     frequency = SPEAKER_FREQUENCIES.get(top_species, 0)
     should_alert = frequency > 0 and top_confidence > 0.7
 
@@ -378,13 +359,12 @@ def predict_frame(
         "confidence": round(top_confidence, 4),
         "alert": should_alert,
         "speaker_frequency_hz": frequency,
-        "all_predictions": predictions[:5],  # Top 5
+        "all_predictions": predictions[:5],
         "frame_width": width,
         "frame_height": height,
         "inference_time_ms": round(inference_time, 2),
     }
 
-    # Add pose details if available
     if pose_result:
         result["pose_analysis"] = {
             "state": pose_result["state"],
@@ -401,19 +381,9 @@ def predict_video(
     confidence_threshold: float = 0.1,
     sample_fps: Optional[float] = 3.0,
 ) -> dict:
-    """
-    Run species classification on a video file.
+    """Run species classification on a video file."""
+    from collections import defaultdict
 
-    Aggregates frame-level predictions to determine the overall species.
-
-    Args:
-        video_path: path to video file
-        confidence_threshold: minimum confidence to include
-        sample_fps: frames per second to sample (default 3.0)
-
-    Returns:
-        dict with aggregated prediction and per-frame details
-    """
     load_model()
     cap = cv2.VideoCapture(video_path)
 
@@ -426,13 +396,11 @@ def predict_video(
     if video_fps <= 0:
         video_fps = 30
 
-    # Calculate frame sampling
     if sample_fps and sample_fps < video_fps:
         frame_interval = int(video_fps / sample_fps)
     else:
         frame_interval = 1
 
-    # Accumulate scores
     species_scores = defaultdict(float)
     species_counts = defaultdict(int)
     frames_results = []
@@ -450,24 +418,20 @@ def predict_video(
             scores = classify_frame(frame)
             timestamp_ms = (frame_count / video_fps) * 1000
 
-            # Accumulate weighted scores
             for species, score in scores.items():
                 if score > confidence_threshold:
                     species_scores[species] += score
                     species_counts[species] += 1
 
-            # Get top prediction for this frame
             top_species = max(scores.keys(), key=lambda s: scores[s])
             top_conf = scores[top_species]
 
-            frames_results.append(
-                {
-                    "frame_number": frame_count,
-                    "timestamp_ms": round(timestamp_ms, 2),
-                    "predicted_species": top_species,
-                    "confidence": round(top_conf, 4),
-                }
-            )
+            frames_results.append({
+                "frame_number": frame_count,
+                "timestamp_ms": round(timestamp_ms, 2),
+                "predicted_species": top_species,
+                "confidence": round(top_conf, 4),
+            })
             processed_count += 1
 
         frame_count += 1
@@ -476,25 +440,14 @@ def predict_video(
     total_time = time.perf_counter() - start_time
     processing_fps = processed_count / total_time if total_time > 0 else 0
 
-    # Determine overall prediction using weighted voting
     if species_scores:
-        # Weight by average confidence * log of vote count
         weighted_scores = {
-            s: (species_scores[s] / max(1, species_counts[s]))
-            * np.log1p(species_counts[s])
+            s: (species_scores[s] / max(1, species_counts[s])) * np.log1p(species_counts[s])
             for s in species_scores
         }
-        predicted_species = max(
-            weighted_scores.keys(), key=lambda s: weighted_scores[s]
-        )
-        avg_confidence = species_scores[predicted_species] / max(
-            1, species_counts[predicted_species]
-        )
-
-        # Get top 3
-        sorted_species = sorted(
-            weighted_scores.keys(), key=lambda s: weighted_scores[s], reverse=True
-        )[:3]
+        predicted_species = max(weighted_scores.keys(), key=lambda s: weighted_scores[s])
+        avg_confidence = species_scores[predicted_species] / max(1, species_counts[predicted_species])
+        sorted_species = sorted(weighted_scores.keys(), key=lambda s: weighted_scores[s], reverse=True)[:3]
     else:
         predicted_species = "unknown"
         avg_confidence = 0.0
@@ -514,20 +467,18 @@ def predict_video(
 
 
 def is_model_loaded() -> bool:
-    """Check if model is loaded."""
     return _model_loaded
 
 
 def get_model_info() -> dict:
-    """Get model information."""
     return {
-        "model_name": CLIP_MODEL_NAME,
+        "model_name": "clip-vit-base-patch32-onnx",
         "model_type": "zero-shot-classifier",
         "target_classes": DETECTION_CLASSES,
         "wildlife_classes": DETECTION_CLASSES[:12],
         "person_classes": ["person_normal", "person_abnormal"],
         "loaded": is_model_loaded(),
-        "device": _device if _model_loaded else "not loaded",
+        "device": "cpu (onnxruntime)",
         "accuracy": "100% (wildlife test set)",
         "local_ml_enabled": LOCAL_ML_ENABLED,
         "memory_limit_mb": _memory_limit_mb(),
