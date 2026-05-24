@@ -54,12 +54,16 @@ INCIDENT_COOLDOWN_SECONDS = 30.0
 STREAM_FPS = float(os.getenv("STREAM_FPS", "10"))
 STREAM_CLEANUP_TTL_SECONDS = float(os.getenv("STREAM_CLEANUP_TTL_SECONDS", "30"))
 ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
-PERSON_CLASSES = {
-    "person_normal",
+# Person states that should NOT trigger alerts (normal behavior)
+PERSON_NORMAL_CLASSES = {"person_normal"}
+# Person states that SHOULD trigger alerts (abnormal/emergency)
+PERSON_ALERT_CLASSES = {
     "person_abnormal",
     "person_fallen",
     "person_distress",
 }
+# All person classes (for logging/display purposes)
+PERSON_CLASSES = PERSON_NORMAL_CLASSES | PERSON_ALERT_CLASSES
 
 logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.INFO)
@@ -362,7 +366,9 @@ def _utc_now_iso() -> str:
 def _incident_type_for_prediction(predicted_label: str) -> Optional[str]:
     if predicted_label in ANIMAL_CLASSES:
         return "animal_on_road"
-    if predicted_label in PERSON_CLASSES:
+    # Only trigger incidents for ABNORMAL person states (fallen, distress, fighting)
+    # Normal walking/standing people should NOT trigger any incident
+    if predicted_label in PERSON_ALERT_CLASSES:
         return "person_on_road"
     return None
 
