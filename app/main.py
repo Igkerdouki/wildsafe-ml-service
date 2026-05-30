@@ -24,7 +24,6 @@ from aiortc import (
     RTCRtpReceiver,
     RTCSessionDescription,
 )
-from aiortc.mediastreams import MediaStreamError
 from aiortc.rtcicetransport import parse_stun_turn_uri
 
 from app.schemas import (
@@ -55,16 +54,12 @@ INCIDENT_COOLDOWN_SECONDS = 30.0
 STREAM_FPS = float(os.getenv("STREAM_FPS", "10"))
 STREAM_CLEANUP_TTL_SECONDS = float(os.getenv("STREAM_CLEANUP_TTL_SECONDS", "30"))
 ANIMAL_CLASSES = set(DETECTION_CLASSES[:12])
-# Person states that should NOT trigger alerts (normal behavior)
-PERSON_NORMAL_CLASSES = {"person_normal"}
-# Person states that SHOULD trigger alerts (abnormal/emergency)
-PERSON_ALERT_CLASSES = {
+PERSON_CLASSES = {
+    "person_normal",
     "person_abnormal",
     "person_fallen",
     "person_distress",
 }
-# All person classes (for logging/display purposes)
-PERSON_CLASSES = PERSON_NORMAL_CLASSES | PERSON_ALERT_CLASSES
 
 logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.INFO)
@@ -299,7 +294,6 @@ class WebRTCStreamState:
     error: Optional[str] = None
     terminal_at: Optional[float] = None
     cleanup_task: Optional[asyncio.Task] = None
-    frame_task: Optional[asyncio.Task] = None
     last_incident_type: Optional[str] = None
     last_incident_sent_at: float = 0.0
     last_orchestrator_error: Optional[str] = None
@@ -334,15 +328,6 @@ def _mark_stream_terminal(stream_id: str, state: WebRTCStreamState, status: str,
         state.error = error
     if state.terminal_at is None:
         state.terminal_at = time.monotonic()
-    current_task = asyncio.current_task()
-    if state.frame_task and not state.frame_task.done() and state.frame_task is not current_task:
-        logger.info(
-            "Cancelling WebRTC frame loop stream_id=%s camera_id=%s status=%s",
-            stream_id,
-            state.camera_id,
-            status,
-        )
-        state.frame_task.cancel()
     if state.cleanup_task is None or state.cleanup_task.done():
         state.cleanup_task = asyncio.create_task(_remove_stream_after_ttl(stream_id, state))
 
@@ -377,9 +362,7 @@ def _utc_now_iso() -> str:
 def _incident_type_for_prediction(predicted_label: str) -> Optional[str]:
     if predicted_label in ANIMAL_CLASSES:
         return "animal_on_road"
-    # Only trigger incidents for ABNORMAL person states (fallen, distress, fighting)
-    # Normal walking/standing people should NOT trigger any incident
-    if predicted_label in PERSON_ALERT_CLASSES:
+    if predicted_label in PERSON_CLASSES:
         return "person_on_road"
     return None
 
@@ -494,8 +477,6 @@ def _build_incident_payload(
     return {
         "incident_id": incident_id,
         "type": incident_type,
-        "detected_species": prediction.get("predicted_species"),  # e.g., "deer", "bear", "person_abnormal"
-        "confidence": prediction.get("confidence"),
         "occurred_at": occurred_at,
         "reported_at": _utc_now_iso(),
         "speaker_frequency_hz": prediction.get("speaker_frequency_hz", 0),
@@ -943,22 +924,6 @@ async def _process_webrtc_video_track(
         while True:
             done, _ = await asyncio.wait({recv_task}, timeout=5.0)
             if not done:
-                if not _is_active_stream(state) or getattr(track, "readyState", "unknown") == "ended":
-                    logger.info(
-                        "WebRTC frame loop stopping while waiting stream_id=%s camera_id=%s received=%s skipped=%s processed=%s track_ready_state=%s pc_state=%s ice_state=%s signaling_state=%s",
-                        stream_id,
-                        state.camera_id,
-                        state.frames_received,
-                        state.frames_skipped,
-                        state.frames_processed,
-                        getattr(track, "readyState", "unknown"),
-                        state.peer_connection.connectionState,
-                        state.peer_connection.iceConnectionState,
-                        state.peer_connection.signalingState,
-                    )
-                    recv_task.cancel()
-                    _mark_stream_terminal(stream_id, state, state.peer_connection.connectionState or "ended")
-                    break
                 logger.warning(
                     "WebRTC waiting for first/next frame stream_id=%s camera_id=%s received=%s skipped=%s processed=%s track_ready_state=%s pc_state=%s ice_state=%s signaling_state=%s",
                     stream_id,
@@ -980,20 +945,6 @@ async def _process_webrtc_video_track(
                 continue
 
             frame = recv_task.result()
-            if not _is_active_stream(state):
-                logger.info(
-                    "WebRTC frame loop stopping after receive stream_id=%s camera_id=%s received=%s skipped=%s processed=%s pc_state=%s ice_state=%s signaling_state=%s",
-                    stream_id,
-                    state.camera_id,
-                    state.frames_received,
-                    state.frames_skipped,
-                    state.frames_processed,
-                    state.peer_connection.connectionState,
-                    state.peer_connection.iceConnectionState,
-                    state.peer_connection.signalingState,
-                )
-                _mark_stream_terminal(stream_id, state, state.peer_connection.connectionState or "ended")
-                break
             recv_task = asyncio.create_task(track.recv())
             state.frames_received += 1
 
@@ -1143,27 +1094,6 @@ async def _process_webrtc_video_track(
         if "recv_task" in locals() and not recv_task.done():
             recv_task.cancel()
         raise
-    except MediaStreamError as exc:
-        status = state.peer_connection.connectionState
-        message = (
-            "media_stream_ended"
-            if status in TERMINAL_STREAM_STATUSES or getattr(track, "readyState", "unknown") == "ended"
-            else str(exc) or "media_stream_error"
-        )
-        _mark_stream_terminal(stream_id, state, status if status in TERMINAL_STREAM_STATUSES else "ended", message)
-        logger.info(
-            "WebRTC frame loop ended stream_id=%s camera_id=%s received=%s skipped=%s processed=%s track_ready_state=%s pc_state=%s ice_state=%s signaling_state=%s reason=%s",
-            stream_id,
-            state.camera_id,
-            state.frames_received,
-            state.frames_skipped,
-            state.frames_processed,
-            getattr(track, "readyState", "unknown"),
-            state.peer_connection.connectionState,
-            state.peer_connection.iceConnectionState,
-            state.peer_connection.signalingState,
-            message,
-        )
     except Exception as exc:
         _mark_stream_terminal(stream_id, state, "ended", str(exc))
         logger.exception(
@@ -1175,9 +1105,6 @@ async def _process_webrtc_video_track(
             state.frames_processed,
             exc,
         )
-    finally:
-        if state.frame_task is asyncio.current_task():
-            state.frame_task = None
 
 
 @app.post("/predict/webrtc/offer", response_model=WebRTCOfferResponse)
@@ -1261,14 +1188,7 @@ async def predict_webrtc_offer(request: WebRTCOfferRequest):
             state.camera_id,
             getattr(track, "id", "unknown"),
         )
-        if state.frame_task and not state.frame_task.done():
-            logger.info(
-                "Cancelling previous WebRTC frame loop stream_id=%s camera_id=%s reason=new_video_track",
-                stream_id,
-                state.camera_id,
-            )
-            state.frame_task.cancel()
-        state.frame_task = asyncio.create_task(
+        asyncio.create_task(
             _process_webrtc_video_track(
                 stream_id,
                 track,
@@ -1419,9 +1339,6 @@ async def close_webrtc_stream(stream_id: str):
         raise HTTPException(404, "Unknown WebRTC stream")
 
     logger.info("Closing WebRTC stream by API stream_id=%s camera_id=%s", stream_id, state.camera_id)
-    if state.frame_task and not state.frame_task.done():
-        logger.info("Cancelling WebRTC frame loop stream_id=%s camera_id=%s reason=delete_api", stream_id, state.camera_id)
-        state.frame_task.cancel()
     await state.peer_connection.close()
     logger.info("Removed WebRTC stream stream_id=%s reason=delete_api", stream_id)
     return {"stream_id": stream_id, "status": "closed"}

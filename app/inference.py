@@ -85,29 +85,11 @@ TEXT_PROMPTS = {
     "raccoon": ["a photo of a raccoon", "a raccoon with bandit mask"],
     "skunk": ["a photo of a skunk", "a striped skunk"],
     "wild_boar": ["a photo of a wild boar", "a wild pig", "a feral hog"],
-    "person_normal": [
-        # Standing/walking
-        "a person standing upright on a sidewalk",
-        "a person walking normally down the street",
-        "a pedestrian crossing the road safely",
-        "a person jogging or exercising outdoors",
-        # Sitting (normal behavior - NOT an emergency)
-        "a person sitting on a bench",
-        "someone sitting down resting",
-        "a person seated on the ground taking a break",
-        "a person crouching or kneeling",
-    ],
+    "person_normal": ["a person standing upright", "a person walking normally"],
     "person_abnormal": [
-        # Fallen/fainted - person lying FLAT on ground, unconscious
-        "an unconscious body lying flat on the pavement",
-        "a person collapsed face down on the ground",
-        "someone who fainted and fell to the ground",
-        "a motionless body sprawled on the road",
-        "a person lying unconscious after falling",
-        # Violent fighting
-        "two people in a violent fistfight",
-        "people physically attacking each other",
-        "a violent brawl between multiple people",
+        "a body lying motionless on the ground",
+        "an unconscious person collapsed",
+        "a person slumped over not moving",
     ],
 }
 
