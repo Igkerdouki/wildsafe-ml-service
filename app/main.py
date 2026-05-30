@@ -494,6 +494,8 @@ def _build_incident_payload(
     return {
         "incident_id": incident_id,
         "type": incident_type,
+        "detected_species": prediction.get("predicted_species"),  # e.g., "deer", "bear", "person_abnormal"
+        "confidence": prediction.get("confidence"),
         "occurred_at": occurred_at,
         "reported_at": _utc_now_iso(),
         "speaker_frequency_hz": prediction.get("speaker_frequency_hz", 0),
