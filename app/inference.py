@@ -86,26 +86,28 @@ TEXT_PROMPTS = {
     "skunk": ["a photo of a skunk", "a striped skunk"],
     "wild_boar": ["a photo of a wild boar", "a wild pig", "a feral hog"],
     "person_normal": [
+        # Standing/walking
         "a person standing upright on a sidewalk",
         "a person walking normally down the street",
         "a pedestrian crossing the road safely",
         "a person jogging or exercising outdoors",
+        # Sitting (normal behavior - NOT an emergency)
+        "a person sitting on a bench",
+        "someone sitting down resting",
+        "a person seated on the ground taking a break",
+        "a person crouching or kneeling",
     ],
     "person_abnormal": [
-        # Fallen/collapsed
-        "a person lying motionless on the ground",
-        "an unconscious person collapsed on pavement",
-        "a person fallen down unable to get up",
-        # Drunk/impaired
-        "a drunk person stumbling and staggering",
-        "an intoxicated person unable to walk straight",
-        # Fighting/violence
-        "two people fighting violently",
-        "a physical altercation between people",
-        "people punching and attacking each other",
-        # Distress
-        "a person hunched over in pain",
-        "someone having a medical emergency",
+        # Fallen/fainted - person lying FLAT on ground, unconscious
+        "an unconscious body lying flat on the pavement",
+        "a person collapsed face down on the ground",
+        "someone who fainted and fell to the ground",
+        "a motionless body sprawled on the road",
+        "a person lying unconscious after falling",
+        # Violent fighting
+        "two people in a violent fistfight",
+        "people physically attacking each other",
+        "a violent brawl between multiple people",
     ],
 }
 
