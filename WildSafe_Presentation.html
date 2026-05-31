@@ -1,0 +1,1380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WildSafe - AI Wildlife Detection & Driver Safety System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#050a12;
+      --card:#0a1220;
+      --card2:#0d1829;
+      --text:#f0f4f8;
+      --muted:#8b9cb3;
+      --accent:#10b981;
+      --accent-light:#34d399;
+      --accent2:#f59e0b;
+      --danger:#ef4444;
+      --blue:#3b82f6;
+      --purple:#8b5cf6;
+      --gradient: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+      --glow: 0 0 60px rgba(16, 185, 129, 0.3);
+      --shadow: 0 25px 80px rgba(0,0,0,0.6);
+    }
+    *{box-sizing:border-box; margin:0; padding:0;}
+    html{scroll-behavior:smooth;}
+    body{
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color:var(--text);
+      line-height:1.7;
+      overflow-x: hidden;
+    }
+
+    /* BACKGROUND EFFECTS */
+    .bg-grid{
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(16, 185, 129, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-glow{
+      position: fixed;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-glow-1{
+      top: -400px;
+      left: -200px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.15), transparent 70%);
+    }
+    .bg-glow-2{
+      top: 50%;
+      right: -300px;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.1), transparent 70%);
+    }
+
+    .wrap{
+      position: relative;
+      z-index: 1;
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 32px 100px;
+    }
+
+    /* NAVIGATION */
+    nav{
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 32px;
+      background: rgba(5, 10, 18, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    nav .nav-content{
+      max-width: 1300px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    nav .logo{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    nav .logo svg{
+      width: 40px;
+      height: 40px;
+    }
+    nav .logo span{
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    nav .nav-links{
+      display: flex;
+      gap: 32px;
+    }
+    nav .nav-links a{
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    nav .nav-links a:hover{
+      color: var(--accent);
+    }
+
+    /* HERO */
+    .hero{
+      text-align:center;
+      padding: 160px 20px 100px;
+      position: relative;
+    }
+    .hero-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 8px 20px;
+      border-radius: 50px;
+      font-size: 13px;
+      color: var(--accent-light);
+      margin-bottom: 32px;
+      font-weight: 500;
+    }
+    .hero-badge::before{
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot{
+      0%, 100%{opacity: 1; transform: scale(1);}
+      50%{opacity: 0.5; transform: scale(1.2);}
+    }
+
+    /* SVG LOGO */
+    .hero-logo{
+      margin-bottom: 32px;
+      display: flex;
+      justify-content: center;
+    }
+    .hero-logo svg{
+      width: 120px;
+      height: 120px;
+      filter: drop-shadow(0 0 40px rgba(16, 185, 129, 0.4));
+    }
+
+    .hero h1{
+      font-size: 72px;
+      font-weight: 800;
+      letter-spacing: -3px;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #fff 0%, var(--accent-light) 50%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .tagline{
+      font-size: 22px;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+    .hero-buttons{
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+    .btn{
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary{
+      background: var(--gradient);
+      color: #fff;
+      box-shadow: 0 8px 30px rgba(16, 185, 129, 0.3);
+    }
+    .btn-primary:hover{
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(16, 185, 129, 0.4);
+    }
+    .btn-secondary{
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-secondary:hover{
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .badge-row{
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .badge .icon{
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gradient);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    .badge strong{color: var(--text);}
+
+    /* SECTION STYLES */
+    .section{
+      padding: 80px 0;
+    }
+    .section-header{
+      text-align: center;
+      margin-bottom: 60px;
+    }
+    .section-header .label{
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    .section-header h2{
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .section-header p{
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* CARDS */
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 24px;
+      padding: 40px;
+      transition: all 0.3s;
+    }
+    .card:hover{
+      border-color: rgba(16, 185, 129, 0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .card.accent{
+      border-left: 4px solid var(--accent);
+    }
+    .card.warning{
+      border-left: 4px solid var(--accent2);
+    }
+    .card.danger{
+      border-left: 4px solid var(--danger);
+    }
+
+    .grid{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .grid-3{
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .grid-4{
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    /* STATS */
+    .stat-card{
+      background: var(--card2);
+      border-radius: 20px;
+      padding: 32px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stat-card .num{
+      font-size: 56px;
+      font-weight: 800;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .stat-card.danger .num{
+      background: linear-gradient(135deg, #f87171, #ef4444);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .stat-card .label{
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+
+    /* FLOW */
+    .flow{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px 0;
+    }
+    .flow-step{
+      background: var(--card2);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 28px 32px;
+      text-align: center;
+      min-width: 160px;
+      transition: all 0.3s;
+    }
+    .flow-step:hover{
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: var(--glow);
+    }
+    .flow-step .icon{
+      width: 56px;
+      height: 56px;
+      background: var(--gradient);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 16px;
+    }
+    .flow-step h4{
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .flow-step p{
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .flow-arrow{
+      font-size: 24px;
+      color: var(--accent);
+    }
+
+    /* FEATURE CARDS */
+    .feature-card{
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.3s;
+    }
+    .feature-card:hover{
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(16, 185, 129, 0.2);
+      transform: translateY(-4px);
+    }
+    .feature-card .icon{
+      width: 52px;
+      height: 52px;
+      background: var(--gradient);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    .feature-card h4{
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .feature-card p{
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* IMAGE BOX */
+    .img-box{
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--card);
+    }
+    .img-box img{
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .img-box .caption{
+      padding: 16px 20px;
+      font-size: 13px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.3);
+    }
+
+    /* PHONE MOCKUP */
+    .phone-wrap{
+      display: flex;
+      justify-content: center;
+      perspective: 1000px;
+    }
+    .phone{
+      background: linear-gradient(145deg, #1f2937, #111827);
+      border-radius: 50px;
+      padding: 14px;
+      box-shadow: 0 50px 100px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1);
+      transform: rotateY(-5deg) rotateX(5deg);
+      transition: transform 0.5s;
+    }
+    .phone:hover{
+      transform: rotateY(0) rotateX(0);
+    }
+    .phone-screen{
+      background: linear-gradient(180deg, #0f172a, #1e293b);
+      border-radius: 40px;
+      width: 280px;
+      min-height: 560px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .phone-notch{
+      width: 120px;
+      height: 32px;
+      background: #000;
+      border-radius: 20px;
+      margin: 0 auto 24px;
+    }
+    .phone-time{
+      text-align: center;
+      font-size: 48px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .phone-date{
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .alert-notification{
+      background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(239,68,68,0.05));
+      border: 2px solid rgba(239,68,68,0.5);
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 16px;
+      animation: alert-glow 2s infinite;
+    }
+    @keyframes alert-glow{
+      0%, 100%{box-shadow: 0 0 0 0 rgba(239,68,68,0.4);}
+      50%{box-shadow: 0 0 30px 5px rgba(239,68,68,0.2);}
+    }
+    .alert-notification .header{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .alert-notification .header .icon{font-size: 28px;}
+    .alert-notification .header .badge{
+      background: #ef4444;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .alert-notification .species{
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .alert-notification .location{
+      background: rgba(0,0,0,0.3);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--accent2);
+    }
+    .phone-map{
+      background: linear-gradient(180deg, #1e3a5f, #0f2744);
+      border-radius: 16px;
+      height: 160px;
+      position: relative;
+      overflow: hidden;
+    }
+    .phone-map img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.6;
+    }
+    .map-pin{
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -100%);
+    }
+    .map-pin .pin{
+      width: 36px;
+      height: 36px;
+      background: #ef4444;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: bounce-pin 1s infinite;
+    }
+    .map-pin .pin span{
+      transform: rotate(45deg);
+      font-size: 16px;
+    }
+    .map-pin .pulse{
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 50px;
+      height: 50px;
+      background: rgba(239,68,68,0.3);
+      border-radius: 50%;
+      animation: pulse-ring 2s infinite;
+    }
+    @keyframes bounce-pin{
+      0%, 100%{transform: rotate(-45deg) translateY(0);}
+      50%{transform: rotate(-45deg) translateY(-6px);}
+    }
+    @keyframes pulse-ring{
+      0%{transform: translate(-50%, -50%) scale(0.5); opacity: 1;}
+      100%{transform: translate(-50%, -50%) scale(2.5); opacity: 0;}
+    }
+
+    /* CAMERA VIEW */
+    .camera-container{
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 2px solid rgba(16, 185, 129, 0.4);
+    }
+    .camera-container img{
+      width: 100%;
+      display: block;
+    }
+    .detection-overlay{
+      position: absolute;
+      top: 20%;
+      left: 25%;
+      width: 45%;
+      height: 55%;
+      border: 3px solid var(--accent);
+      border-radius: 8px;
+      animation: detect-pulse 1.5s infinite;
+    }
+    @keyframes detect-pulse{
+      0%, 100%{box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);}
+      50%{box-shadow: 0 0 30px 10px rgba(16, 185, 129, 0.2);}
+    }
+    .detection-label{
+      position: absolute;
+      top: 18%;
+      left: 25%;
+      background: var(--accent);
+      color: #000;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transform: translateY(-100%);
+    }
+    .camera-status{
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      padding: 10px 16px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .camera-status .dot{
+      width: 10px;
+      height: 10px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink{
+      0%, 100%{opacity: 1;}
+      50%{opacity: 0.3;}
+    }
+
+    /* SOUND DEMO */
+    .sound-section{
+      background: var(--card);
+      border-radius: 24px;
+      padding: 40px;
+      margin-top: 32px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .sound-section h3{
+      font-size: 20px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sound-section > p{
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+    .sound-grid{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .sound-btn{
+      background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05));
+      border: 2px solid rgba(245,158,11,0.3);
+      border-radius: 16px;
+      padding: 20px;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .sound-btn:hover{
+      background: linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.1));
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(245,158,11,0.2);
+    }
+    .sound-btn.playing{
+      background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(16,185,129,0.1));
+      border-color: rgba(16,185,129,0.5);
+      animation: sound-pulse 0.5s infinite;
+    }
+    @keyframes sound-pulse{
+      0%, 100%{box-shadow: 0 0 0 0 rgba(16,185,129,0.4);}
+      50%{box-shadow: 0 0 20px 5px rgba(16,185,129,0.2);}
+    }
+    .sound-btn .icon{font-size: 32px;}
+    .sound-btn .freq{font-size: 11px; color: var(--muted); font-weight: 400;}
+    .sound-btn.stop{
+      background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05));
+      border-color: rgba(239,68,68,0.3);
+    }
+    .sound-btn.stop:hover{
+      background: linear-gradient(135deg, rgba(239,68,68,0.25), rgba(239,68,68,0.1));
+      box-shadow: 0 10px 30px rgba(239,68,68,0.2);
+    }
+    .volume-row{
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .volume-row label{
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .volume-row input[type="range"]{
+      flex: 1;
+      max-width: 200px;
+      height: 6px;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+    }
+    .volume-row input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent2);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .freq-display{
+      background: #050a12;
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-family: 'SF Mono', monospace;
+      font-size: 14px;
+      color: var(--accent);
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .freq-display .wave{
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 24px;
+    }
+    .freq-display .wave span{
+      width: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+      animation: wave-anim 0.5s ease-in-out infinite;
+    }
+    .freq-display .wave span:nth-child(1){animation-delay: 0s; height: 10px;}
+    .freq-display .wave span:nth-child(2){animation-delay: 0.1s; height: 18px;}
+    .freq-display .wave span:nth-child(3){animation-delay: 0.2s; height: 14px;}
+    .freq-display .wave span:nth-child(4){animation-delay: 0.3s; height: 22px;}
+    .freq-display .wave span:nth-child(5){animation-delay: 0.4s; height: 12px;}
+    .freq-display.stopped .wave span{
+      animation: none;
+      height: 4px;
+      background: var(--muted);
+    }
+    @keyframes wave-anim{
+      0%, 100%{transform: scaleY(1);}
+      50%{transform: scaleY(0.4);}
+    }
+
+    /* VIDEO */
+    .video-container{
+      border-radius: 24px;
+      overflow: hidden;
+      background: #000;
+      border: 2px solid rgba(255,255,255,0.1);
+    }
+    .video-container video{
+      width: 100%;
+      display: block;
+    }
+
+    /* TERMINAL */
+    .terminal{
+      background: #0a0a0a;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .terminal-header{
+      background: #151515;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .terminal-dot{
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .terminal-dot.red{background: #ff5f56;}
+    .terminal-dot.yellow{background: #ffbd2e;}
+    .terminal-dot.green{background: #27ca40;}
+    .terminal-title{
+      margin-left: 12px;
+      font-size: 12px;
+      color: #666;
+    }
+    .terminal-body{
+      padding: 24px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 2;
+    }
+    .terminal-body .success{color: #22c55e;}
+    .terminal-body .info{color: #8b9cb3;}
+    .terminal-body .warning{color: #f59e0b;}
+    .terminal-body .white{color: #fff;}
+    .terminal-body .blue{color: #3b82f6;}
+
+    /* FOOTER */
+    footer{
+      text-align: center;
+      padding: 60px 20px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin-top: 80px;
+    }
+    footer .logo{
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    footer .logo svg{width: 36px; height: 36px;}
+    footer .logo span{font-size: 20px; font-weight: 700;}
+    footer p{
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px){
+      .grid, .grid-3, .grid-4{grid-template-columns: 1fr;}
+      .hero h1{font-size: 48px;}
+      .flow{flex-direction: column;}
+      .flow-arrow{transform: rotate(90deg);}
+      nav .nav-links{display: none;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-content">
+      <a href="#" class="logo">
+        <span style="font-size: 32px; margin-right: 8px;">🛡️</span>
+        <span>WildSafe</span>
+      </a>
+      <div class="nav-links">
+        <a href="#problem">Problem</a>
+        <a href="#solution">Solution</a>
+        <a href="#demo">Demo</a>
+        <a href="#tech">Technology</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <!-- HERO -->
+    <header class="hero">
+      <div class="hero-badge">Live Demo Available</div>
+
+      <div class="hero-logo" style="font-size: 100px;">
+        🛡️
+      </div>
+
+      <h1>WildSafe</h1>
+      <p class="tagline">AI-powered wildlife detection system that protects drivers and animals with real-time alerts and smart deterrents.</p>
+
+      <div class="hero-buttons">
+        <a href="https://smart-wild-dashboard.onrender.com/" target="_blank" class="btn btn-primary">
+          <span>🖥️</span> Live Dashboard
+        </a>
+        <a href="#demo" class="btn btn-secondary">
+          <span>▶</span> Watch Demo
+        </a>
+      </div>
+
+      <div class="badge-row">
+        <div class="badge"><div class="icon">🤖</div> <strong>CLIP + ONNX</strong>&nbsp;Zero-Shot ML</div>
+        <div class="badge"><div class="icon">📡</div> <strong>WebRTC</strong>&nbsp;Real-Time</div>
+        <div class="badge"><div class="icon">📱</div> <strong>Flutter</strong>&nbsp;Mobile</div>
+        <div class="badge"><div class="icon">🔊</div> <strong>Ultrasonic</strong>&nbsp;Deterrent</div>
+      </div>
+    </header>
+
+    <!-- PROBLEM SECTION -->
+    <section class="section" id="problem">
+      <div class="section-header">
+        <div class="label">The Challenge</div>
+        <h2>Wildlife-Vehicle Collisions</h2>
+        <p>A growing crisis affecting millions of drivers and animals every year.</p>
+      </div>
+
+      <div class="grid grid-4" style="margin-bottom:40px;">
+        <div class="stat-card danger">
+          <div class="num">1.5M+</div>
+          <div class="label">Crashes per year in US</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="num">$8B</div>
+          <div class="label">Annual property damage</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="num">200+</div>
+          <div class="label">Human fatalities</div>
+        </div>
+        <div class="stat-card danger">
+          <div class="num">26K</div>
+          <div class="label">Injuries per year</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="img-box">
+          <img src="https://images.unsplash.com/photo-1484406566174-9da000fda645?auto=format&fit=crop&q=80&w=800" alt="Deer on road">
+          <div class="caption">Deer crossing at dusk - peak collision hours</div>
+        </div>
+        <div class="card danger">
+          <h3 style="margin-bottom:16px; font-size:22px;">Why Current Solutions Fail</h3>
+          <p style="color:var(--muted); margin-bottom:20px;">Traditional warning signs are static and easy to ignore. By the time drivers see an animal, it's often too late.</p>
+          <ul style="list-style:none; color:var(--muted);">
+            <li style="padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.06);">❌ Static signs don't indicate real-time danger</li>
+            <li style="padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.06);">❌ No alerts sent to approaching drivers</li>
+            <li style="padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.06);">❌ No active deterrent to move animals away</li>
+            <li style="padding:12px 0;">❌ Night visibility extremely poor</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOLUTION SECTION -->
+    <section class="section" id="solution">
+      <div class="section-header">
+        <div class="label">Our Approach</div>
+        <h2>Real-Time AI Detection Pipeline</h2>
+        <p>A complete system from detection to alert in under 3 seconds.</p>
+      </div>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="icon">📷</div>
+          <h4>Detect</h4>
+          <p>Camera spots animal</p>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">
+          <div class="icon">🧠</div>
+          <h4>Classify</h4>
+          <p>AI identifies species</p>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">
+          <div class="icon">🔊</div>
+          <h4>Deter</h4>
+          <p>Ultrasonic + lights</p>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step">
+          <div class="icon">📱</div>
+          <h4>Alert</h4>
+          <p>Notify drivers</p>
+        </div>
+      </div>
+
+      <div class="card accent" style="max-width:800px; margin:40px auto 0; text-align:center;">
+        <p style="font-size:18px;"><strong style="color:var(--accent);">WildSafe creates smart wildlife corridors.</strong> Roadside cameras identify animals using AI, activate species-specific deterrents, and alert nearby drivers with exact location and animal type.</p>
+      </div>
+    </section>
+
+    <!-- DEMO SECTION -->
+    <section class="section" id="demo">
+      <div class="section-header">
+        <div class="label">See It In Action</div>
+        <h2>Live Demo</h2>
+      </div>
+
+      <!-- VIDEO -->
+      <div class="video-container" style="margin-bottom:60px;">
+        <video controls poster="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&q=80&w=1200">
+          <source src="demo_video.mp4" type="video/mp4">
+        </video>
+      </div>
+
+      <!-- MOBILE ALERT -->
+      <div class="grid">
+        <div>
+          <h3 style="font-size:28px; margin-bottom:20px;">Mobile Alert with GPS</h3>
+          <p style="color:var(--muted); margin-bottom:32px;">Drivers receive instant push notifications with the exact species and precise location on an interactive map.</p>
+
+          <div class="grid" style="grid-template-columns: 1fr; gap:16px;">
+            <div class="feature-card">
+              <div class="icon">🦌</div>
+              <h4>Species Identification</h4>
+              <p>Not just "animal" - we identify deer, bear, coyote, and more</p>
+            </div>
+            <div class="feature-card">
+              <div class="icon">📍</div>
+              <h4>Precise GPS Location</h4>
+              <p>See exactly where on the map, with distance to your position</p>
+            </div>
+            <div class="feature-card">
+              <div class="icon">⚡</div>
+              <h4>Real-Time Updates</h4>
+              <p>Alerts arrive within 3 seconds of detection</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="phone-wrap">
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="phone-notch"></div>
+              <div class="phone-time">9:41</div>
+              <div class="phone-date">Saturday, January 28</div>
+
+              <div class="alert-notification">
+                <div class="header">
+                  <span class="icon">⚠️</span>
+                  <span class="badge">Wildlife Alert</span>
+                </div>
+                <div class="species">🦌 DEER DETECTED</div>
+                <div class="location">
+                  <span>📍</span>
+                  0.3 mi ahead on Route 7
+                </div>
+              </div>
+
+              <div class="phone-map">
+                <img src="https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&q=80&w=400" alt="Map">
+                <div class="map-pin">
+                  <div class="pulse"></div>
+                  <div class="pin"><span>🦌</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAMERA VIEW -->
+      <div style="margin-top:80px;">
+        <h3 style="font-size:28px; margin-bottom:20px; text-align:center;">Camera Detection View</h3>
+        <div class="grid">
+          <div class="camera-container">
+            <img src="https://images.unsplash.com/photo-1484406566174-9da000fda645?auto=format&fit=crop&q=80&w=800" alt="Deer crossing road">
+            <div class="detection-overlay"></div>
+            <div class="detection-label">DEER 94%</div>
+            <div class="camera-status">
+              <span class="dot"></span>
+              LIVE
+            </div>
+          </div>
+          <div class="terminal">
+            <div class="terminal-header">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
+              <span class="terminal-title">wildsafe-ml — render.com</span>
+            </div>
+            <div class="terminal-body">
+              <div class="success">✓ ONNX Runtime loaded</div>
+              <div class="info">[21:32:01] WebRTC connected</div>
+              <div class="info">[21:32:03] Processing frame...</div>
+              <div class="warning">⚡ DEER detected (0.94)</div>
+              <div class="blue">→ species: "deer"</div>
+              <div class="blue">→ lat: 38.9072, lng: -77.0369</div>
+              <div class="success">✓ Deterrent: 15kHz, 3s</div>
+              <div class="success">✓ Alerts sent to 3 drivers</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SOUND DEMO -->
+      <div class="sound-section">
+        <h3>🔊 Interactive Deterrent Demo</h3>
+        <p>Click to hear the species-specific deterrent frequencies used to keep animals safe.</p>
+
+        <div class="sound-grid">
+          <button class="sound-btn" onclick="playDeterrent('deer')" id="btn-deer">
+            <span class="icon">🦌</span>
+            Deer Deterrent
+            <span class="freq">15kHz pulse</span>
+          </button>
+          <button class="sound-btn" onclick="playDeterrent('bear')" id="btn-bear">
+            <span class="icon">🐻</span>
+            Bear Deterrent
+            <span class="freq">800Hz sweep</span>
+          </button>
+          <button class="sound-btn" onclick="playDeterrent('coyote')" id="btn-coyote">
+            <span class="icon">🐺</span>
+            Coyote Deterrent
+            <span class="freq">Variable</span>
+          </button>
+          <button class="sound-btn" onclick="playDeterrent('alert')" id="btn-alert">
+            <span class="icon">🚨</span>
+            Driver Alert
+            <span class="freq">Warning</span>
+          </button>
+          <button class="sound-btn stop" onclick="stopSound()">
+            <span class="icon">⏹️</span>
+            Stop Sound
+          </button>
+        </div>
+
+        <div class="volume-row">
+          <label>🔉 Volume:</label>
+          <input type="range" id="volume" min="0" max="100" value="30" onchange="setVolume(this.value)">
+          <span id="volume-value">30%</span>
+        </div>
+
+        <div class="freq-display stopped" id="freq-display">
+          <div class="wave"><span></span><span></span><span></span><span></span><span></span></div>
+          <span id="freq-text">Ready to play...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECH SECTION -->
+    <section class="section" id="tech">
+      <div class="section-header">
+        <div class="label">Under The Hood</div>
+        <h2>Technology Stack</h2>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3 style="margin-bottom:20px;">ML Architecture</h3>
+          <p style="color:var(--muted); margin-bottom:24px;">Converted CLIP to ONNX for 5x memory reduction while maintaining accuracy.</p>
+
+          <div style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span style="color:var(--muted);">PyTorch + Transformers</span>
+              <span style="color:var(--danger);">~1.5 GB</span>
+            </div>
+            <div style="background:rgba(239,68,68,0.3); height:16px; border-radius:8px;"></div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span style="color:var(--muted);">ONNX Runtime</span>
+              <span style="color:var(--accent);">~300 MB</span>
+            </div>
+            <div style="background:var(--gradient); height:16px; border-radius:8px; width:20%;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:20px;">Full Stack</h3>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:10px; font-size:14px;"><strong style="color:var(--accent);">•</strong> ONNX Runtime</div>
+            <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:10px; font-size:14px;"><strong style="color:var(--accent);">•</strong> CLIP ViT-B/32</div>
+            <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:10px; font-size:14px;"><strong style="color:var(--accent);">•</strong> FastAPI</div>
+            <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:10px; font-size:14px;"><strong style="color:var(--accent);">•</strong> WebRTC</div>
+            <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:10px; font-size:14px;"><strong style="color:var(--accent);">•</strong> Flutter</div>
+            <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:10px; font-size:14px;"><strong style="color:var(--accent);">•</strong> Raspberry Pi</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMPACT -->
+    <section class="section">
+      <div class="section-header">
+        <div class="label">Why It Matters</div>
+        <h2>Potential Impact</h2>
+      </div>
+
+      <div class="grid grid-4">
+        <div class="feature-card">
+          <div class="icon">🚗</div>
+          <h4>Fewer Accidents</h4>
+          <p>Early warnings give drivers time to react safely</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🦌</div>
+          <h4>Wildlife Protection</h4>
+          <p>Humane deterrents keep animals away from roads</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">💰</div>
+          <h4>Cost Savings</h4>
+          <p>Average deer collision costs $4,000+</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🌍</div>
+          <h4>Scalable</h4>
+          <p>Solar-powered, cellular-connected units</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="logo">
+      <span style="font-size: 32px; margin-right: 8px;">🛡️</span>
+      <span>WildSafe</span>
+    </div>
+    <p>Built with ❤️ by Team WildSafe • UC San Diego</p>
+    <p style="margin-top:16px;"><a href="https://smart-wild-dashboard.onrender.com/" target="_blank" style="color:var(--accent); font-weight:600;">🖥️ Live Dashboard: smart-wild-dashboard.onrender.com</a></p>
+  </footer>
+
+  <!-- SOUND JAVASCRIPT -->
+  <script>
+    let audioContext = null;
+    let oscillator = null;
+    let gainNode = null;
+    let isPlaying = false;
+    let currentVolume = 0.3;
+
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }
+
+    function stopSound() {
+      if (oscillator) {
+        oscillator.stop();
+        oscillator.disconnect();
+        oscillator = null;
+      }
+      if (gainNode) {
+        gainNode.disconnect();
+        gainNode = null;
+      }
+      isPlaying = false;
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('playing'));
+      document.getElementById('freq-display').classList.add('stopped');
+      document.getElementById('freq-text').textContent = 'Ready to play...';
+    }
+
+    function playTone(frequency, duration, type = 'sine') {
+      initAudio();
+      stopSound();
+      oscillator = audioContext.createOscillator();
+      gainNode = audioContext.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(currentVolume, audioContext.currentTime);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      isPlaying = true;
+      if (duration > 0) setTimeout(stopSound, duration);
+      return { oscillator, gainNode };
+    }
+
+    function playDeterrent(type) {
+      initAudio();
+      stopSound();
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('playing'));
+      document.getElementById('btn-' + type)?.classList.add('playing');
+      document.getElementById('freq-display').classList.remove('stopped');
+
+      switch(type) {
+        case 'deer':
+          document.getElementById('freq-text').textContent = 'Playing: 12-15kHz ultrasonic pulse';
+          playPulsePattern([12000, 14000, 15000], 200, 100, 3000);
+          break;
+        case 'bear':
+          document.getElementById('freq-text').textContent = 'Playing: 400-1200Hz sweep';
+          playSweep(400, 1200, 2000, 3);
+          break;
+        case 'coyote':
+          document.getElementById('freq-text').textContent = 'Playing: Variable pitch';
+          playVariablePattern();
+          break;
+        case 'alert':
+          document.getElementById('freq-text').textContent = 'Playing: Driver warning';
+          playAlertTone();
+          break;
+      }
+    }
+
+    function playPulsePattern(frequencies, onTime, offTime, totalDuration) {
+      let index = 0;
+      const startTime = Date.now();
+      function pulse() {
+        if (Date.now() - startTime > totalDuration || !isPlaying) { stopSound(); return; }
+        const freq = frequencies[index % frequencies.length];
+        playTone(freq, onTime);
+        index++;
+        setTimeout(() => { if (isPlaying) setTimeout(pulse, offTime); }, onTime);
+      }
+      isPlaying = true;
+      pulse();
+    }
+
+    function playSweep(startFreq, endFreq, duration, repeats) {
+      initAudio();
+      oscillator = audioContext.createOscillator();
+      gainNode = audioContext.createGain();
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(startFreq, audioContext.currentTime);
+      for (let i = 0; i < repeats; i++) {
+        const startTime = audioContext.currentTime + (i * duration / 1000);
+        oscillator.frequency.linearRampToValueAtTime(endFreq, startTime + (duration / 2000));
+        oscillator.frequency.linearRampToValueAtTime(startFreq, startTime + (duration / 1000));
+      }
+      gainNode.gain.setValueAtTime(currentVolume * 0.5, audioContext.currentTime);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      isPlaying = true;
+      setTimeout(stopSound, duration * repeats);
+    }
+
+    function playVariablePattern() {
+      const frequencies = [1000, 1500, 800, 2000, 1200, 900, 1800];
+      let index = 0;
+      isPlaying = true;
+      function playNext() {
+        if (index >= frequencies.length * 2 || !isPlaying) { stopSound(); return; }
+        const freq = frequencies[index % frequencies.length];
+        const duration = 100 + Math.random() * 150;
+        playTone(freq, duration, 'square');
+        index++;
+        setTimeout(playNext, duration + 50);
+      }
+      playNext();
+    }
+
+    function playAlertTone() {
+      const frequencies = [800, 1000];
+      let index = 0;
+      const startTime = Date.now();
+      isPlaying = true;
+      function alternate() {
+        if (Date.now() - startTime > 3000 || !isPlaying) { stopSound(); return; }
+        playTone(frequencies[index % 2], 250);
+        index++;
+        setTimeout(alternate, 300);
+      }
+      alternate();
+    }
+
+    function setVolume(value) {
+      currentVolume = value / 100;
+      document.getElementById('volume-value').textContent = value + '%';
+      if (gainNode) gainNode.gain.setValueAtTime(currentVolume, audioContext.currentTime);
+    }
+
+    document.body.addEventListener('click', () => initAudio(), { once: true });
+  </script>
+</body>
+</html>
