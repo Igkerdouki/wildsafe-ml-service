@@ -1230,6 +1230,9 @@
     <p style="margin-top:16px;"><a href="https://smart-wild-dashboard.onrender.com/" target="_blank" style="color:var(--accent); font-weight:600;">🖥️ Live Dashboard: smart-wild-dashboard.onrender.com</a></p>
   </footer>
 
+  <!-- AUDIO ELEMENT FOR REAL DETERRENT SOUND -->
+  <audio id="deterrentAudio" src="deterrent_sound.mp3" preload="auto"></audio>
+
   <!-- SOUND JAVASCRIPT -->
   <script>
     let audioContext = null;
@@ -1237,6 +1240,7 @@
     let gainNode = null;
     let isPlaying = false;
     let currentVolume = 0.3;
+    let deterrentAudio = null;
 
     function initAudio() {
       if (!audioContext) {
@@ -1244,6 +1248,9 @@
       }
       if (audioContext.state === 'suspended') {
         audioContext.resume();
+      }
+      if (!deterrentAudio) {
+        deterrentAudio = document.getElementById('deterrentAudio');
       }
     }
 
@@ -1257,10 +1264,32 @@
         gainNode.disconnect();
         gainNode = null;
       }
+      if (deterrentAudio) {
+        deterrentAudio.pause();
+        deterrentAudio.currentTime = 0;
+      }
       isPlaying = false;
       document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('playing'));
       document.getElementById('freq-display').classList.add('stopped');
       document.getElementById('freq-text').textContent = 'Ready to play...';
+    }
+
+    function playRealDeterrent(buttonId, label) {
+      initAudio();
+      stopSound();
+
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('playing'));
+      document.getElementById(buttonId)?.classList.add('playing');
+      document.getElementById('freq-display').classList.remove('stopped');
+      document.getElementById('freq-text').textContent = 'Playing: ' + label;
+
+      deterrentAudio.volume = currentVolume;
+      deterrentAudio.play();
+      isPlaying = true;
+
+      deterrentAudio.onended = function() {
+        stopSound();
+      };
     }
 
     function playTone(frequency, duration, type = 'sine') {
@@ -1288,16 +1317,13 @@
 
       switch(type) {
         case 'deer':
-          document.getElementById('freq-text').textContent = 'Playing: 12-15kHz ultrasonic pulse';
-          playPulsePattern([12000, 14000, 15000], 200, 100, 3000);
+          playRealDeterrent('btn-deer', 'Real ultrasonic deterrent from demo');
           break;
         case 'bear':
-          document.getElementById('freq-text').textContent = 'Playing: 400-1200Hz sweep';
-          playSweep(400, 1200, 2000, 3);
+          playRealDeterrent('btn-bear', 'Real ultrasonic deterrent from demo');
           break;
         case 'coyote':
-          document.getElementById('freq-text').textContent = 'Playing: Variable pitch';
-          playVariablePattern();
+          playRealDeterrent('btn-coyote', 'Real ultrasonic deterrent from demo');
           break;
         case 'alert':
           document.getElementById('freq-text').textContent = 'Playing: Driver warning';
